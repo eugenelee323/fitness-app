@@ -1,0 +1,5 @@
+node_modules/
+dist/
+my-data.json
+*backup*.json
+.env*
