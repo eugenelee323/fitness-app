@@ -16,21 +16,29 @@ export const stores: Record<TableName, string> = {
   plan_changes: 'id, recommendation_id, planned_exercise_id',
   foods: 'id, name', meals: 'id, date', meal_items: 'id, meal_id, food_id',
   body_metrics: 'id, &date',
+  workout_drafts: 'id, &session_id', app_meta: 'key', import_links: 'key, entity_id',
 }
 
 export class FitnessDB extends Dexie {
   constructor(name = 'fitness-app') {
     super(name)
     // 後續結構異動須新增 version(n).stores(...).upgrade(...)，保留舊資料。
-    this.version(1).stores(stores)
+    const { workout_drafts: _drafts, app_meta: _meta, import_links: _links, ...originalStores } = stores
+    void [_drafts, _meta, _links]
+    this.version(1).stores(originalStores)
     // 版本 2 新增週次排序索引；Dexie 原地建立索引，不刪除既有紀錄。
     this.version(2).stores({ program_weeks: 'id, program_id, week_no, &[program_id+week_no]' })
+    this.version(3).stores({ workout_drafts: stores.workout_drafts, app_meta: stores.app_meta, import_links: stores.import_links })
     for (const name of Object.keys(stores) as TableName[]) {
       this.table(name).hook('creating', (_key, obj: unknown) => { schemas[name].parse(obj) })
       this.table(name).hook('updating', (changes, _key, obj: object) => {
-        // 禁止繞過驗證以點路徑修改 JSON；目前資料存取統一使用整列 put。
-        if (Object.keys(changes).some(key => key.includes('.'))) throw new Error('請以完整資料列更新')
-        schemas[name].parse({ ...obj, ...changes })
+        // Dexie 對整列 put 也可能產生巢狀差異；先還原完整更新結果再驗證。
+        const updated = structuredClone(obj)
+        for (const [path, value] of Object.entries(changes)) {
+          if (path.split('.').some(part => ['__proto__', 'constructor', 'prototype'].includes(part))) throw new Error('不允許的資料路徑')
+          Dexie.setByKeyPath(updated, path, value)
+        }
+        schemas[name].parse(updated)
       })
     }
   }

@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { NavLink, Route, Routes, Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from './db'
+import { Dashboard } from './pages/Dashboard'
+import { Training } from './pages/Training'
+import { History, HistoryDetail } from './pages/History'
+import { BackupPanel } from './pages/BackupPanel'
 import { seedDatabase } from './seed'
 import { applyPersonalImport, preparePersonalImport, type ImportPreview } from './db/import'
 
@@ -31,7 +35,7 @@ function ImportPanel({ onDone, initial = false }: { onDone: () => void; initial?
       finally { setBusy(false); event.target.value = '' }
     }} className="file-input" />
     {preview && <div className="import-preview"><h3>確認匯入內容</h3><dl>{preview.counts.filter(row => row.count).map(row => <div key={row.name}><dt>{row.label}</dt><dd>{row.count} 筆</dd></div>)}</dl>
-      <p className="muted">同日的個人資料與同次訓練紀錄將更新；其餘資料保留。內建課表不會變更。</p>
+      <p className="muted">合併個人資料與初始訓練紀錄；不刪除任何現有紀錄，也不覆蓋另外記錄的訓練。</p>
       <button className="primary" disabled={busy} onClick={async () => {
         setBusy(true); setError('')
         try { await applyPersonalImport(preview); setPreview(null); setSuccess(true); onDone() }
@@ -68,7 +72,7 @@ function Settings({ persisted }: { persisted: boolean | null }) {
   const data = useLiveQuery(async () => ({ profile: await db.rows('user_profiles').toCollection().first(), targets: await db.rows('nutrition_targets').orderBy('effective_from').last(), metrics: await db.rows('body_metrics').orderBy('date').last(), sessions: await db.rows('workout_sessions').count(), sets: await db.rows('workout_sets').count() }))
   const profile = data?.profile
   return <><PageTitle kicker="你的裝置，你的資料" title="設定" description="管理個人初始資料與裝置儲存。" />
-    <ImportPanel onDone={() => {}} />
+    <BackupPanel /><ImportPanel onDone={() => {}} />
     <section className="card"><h2>目前個人資料</h2>{profile ? <dl className="profile-grid"><div><dt>性別</dt><dd>{profile.sex === 'male' ? '男' : profile.sex === 'female' ? '女' : '未填寫'}</dd></div><div><dt>生日</dt><dd>{profile.birth_date ?? '未填寫'}</dd></div><div><dt>身高</dt><dd>{profile.height_cm == null ? '未填寫' : `${profile.height_cm} cm`}</dd></div><div><dt>目標</dt><dd>{profile.goal === 'hypertrophy' ? '增肌' : profile.goal}</dd></div><div><dt>活動量</dt><dd>{{ sedentary: '久坐', light: '輕度', moderate: '中度' }[profile.activity_level]}</dd></div><div><dt>限制</dt><dd>{profile.limitations.map(v => v === 'lower_back' ? '腰部限制' : v).join('、') || '無'}</dd></div></dl> : <p className="muted">尚未匯入個人資料。</p>}
       {data?.targets && <p>營養目標：{data.targets.kcal} kcal · 蛋白質 {data.targets.protein_g} g · 碳水 {data.targets.carbs_g} g · 脂肪 {data.targets.fat_g} g</p>}
       {data?.metrics && <p>最近身體數據（{data.metrics.date}）：體重 {data.metrics.weight_kg ?? '—'} kg · 腰圍 {data.metrics.waist_cm ?? '—'} cm</p>}
@@ -101,9 +105,7 @@ export default function App() {
   if (onboarding) return <main className="welcome"><div className="brand-mark">12</div><PageTitle kicker="12週增肌" title="把每一次訓練，累積成進步。" description="你的 12 週計畫已準備好。先帶入個人資料，或直接開始瀏覽。" /><ImportPanel initial onDone={finish} /><p className="footer-note">無需帳號 · 資料保存在此裝置</p></main>
   return <div className="app-shell"><header className="topbar"><Link to="/" className="brand"><span className="brand-mark small">12</span>12週增肌</Link><span className="local-badge"><i />本機儲存</span></header>
     <main id="main" className="main-content">{offlineReady && <div role="status" className="note">已準備好離線使用。</div>}{updateReady && <div role="status" className="note">有新版本可使用。<button className="secondary" onClick={() => window.dispatchEvent(new Event('app-apply-update'))}>重新載入更新</button></div>}
-      <Routes><Route path="/" element={<><PageTitle kicker="每週兩練，穩定累積" title="為下一次進步做準備" description="歡迎來到你的 12 週增肌計畫。" /><section className="hero card"><span className="eyebrow">12 週 · 3 個階段</span><h2>一份有節奏的計畫</h2><p>A／B 菜單輪替，搭配預定減量週，讓每次訓練都有方向。</p><Link to="/training" className="primary">查看 12 週計畫 <span aria-hidden="true">↗</span></Link></section><section className="card placeholder"><span className="placeholder-icon" aria-hidden="true">▤</span><h2>紀錄從這裡開始</h2><p>訓練、飲食與每週進度將在後續階段加入。</p><Link to="/settings" className="text-link">查看已匯入的個人資料 →</Link></section></>} />
-        <Route path="/training" element={<Plan />} />
-        <Route path="/nutrition" element={<><PageTitle kicker="好好吃，也好好記" title="飲食" description="每日飲食與營養目標，將在後續階段加入。" /><section className="card placeholder"><span className="placeholder-icon" aria-hidden="true">◉</span><h2>準備好每一餐</h2><p>這裡將呈現你的餐點紀錄與營養進度。</p></section></>} />
+      <Routes><Route path="/" element={<Dashboard />} /><Route path="/training" element={<Training />} /><Route path="/plan" element={<Plan />} /><Route path="/history" element={<History />} /><Route path="/history/:id" element={<HistoryDetail />} /><Route path="/nutrition" element={<><PageTitle kicker="好好吃，也好好記" title="飲食" description="每日飲食與營養目標，將在後續階段加入。" /><section className="card placeholder"><span className="placeholder-icon" aria-hidden="true">◉</span><h2>準備好每一餐</h2><p>這裡將呈現你的餐點紀錄與營養進度。</p></section></>} />
         <Route path="/analysis" element={<><PageTitle kicker="看見累積的變化" title="分析" description="每週報告、訓練趨勢與建議，將在後續階段加入。" /><section className="card placeholder"><span className="placeholder-icon" aria-hidden="true">▥</span><h2>讓紀錄說話</h2><p>從每一次訓練，慢慢看見你的進步。</p></section></>} />
         <Route path="/settings" element={<Settings persisted={persisted} />} />
         <Route path="*" element={<><h1>找不到頁面</h1><Link to="/">回到首頁</Link></>} />
@@ -111,4 +113,3 @@ export default function App() {
     <nav className="bottom-nav" aria-label="主要分頁">{tabs.map(tab => <NavLink key={tab.path} to={tab.path} end={tab.path === '/'} className={({ isActive }) => isActive ? 'tab active' : 'tab'}><span aria-hidden="true" className="tab-icon">{tab.icon}</span><span>{tab.name}</span></NavLink>)}</nav>
   </div>
 }
-
