@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link } from 'react-router-dom'
+import { TodayNutrition } from './NutritionProgress'
 import { db } from '../db'
 import { useClock } from '../hooks/useClock'
 import { currentWeek, weeklyCompletion } from '../lib/rules/workout'
@@ -30,5 +31,5 @@ export function Dashboard() {
     {outside && <div className="note">今天不在計畫的 12 週日期範圍內；仍可從訓練頁選擇週次記錄。</div>}
     <section className="card hero"><span className="eyebrow">第 {data.week.week_no} 週 · 階段 {data.week.phase}</span><h2>{data.week.menu} 菜單 · {data.week.is_deload ? '減量週' : '訓練週'}</h2><p>今日課表：{data.draft ? '接續進行中的訓練' : data.prompt === 'push' ? '推日' : '拉日'}（開始前可改選）</p><Link className="primary" to="/training">{data.draft ? '接續訓練' : '開始訓練'} ↗</Link></section>
     <section className="card"><h2>本週完成率</h2><div className="big-number">{Math.round(data.completion.ratio * 100)}<small>%</small></div><progress max="1" value={data.completion.ratio} aria-label="本週完成率" /><p>{data.completion.done}／{data.completion.target} 組 · 單手左右各算半組，重複訓練不重複累計。</p></section>
-    <div className="link-row"><Link className="secondary" to="/plan">12 週計畫</Link><Link className="secondary" to="/history">訓練歷史</Link></div></>
+    <TodayNutrition /><div className="link-row"><Link className="secondary" to="/plan">12 週計畫</Link><Link className="secondary" to="/history">訓練歷史</Link></div></>
 }

@@ -9,16 +9,17 @@ export const planPatchSchema = z.object({
 }).strict()
 export const weekPatchSchema = schemas.program_weeks.pick({ id: true, is_deload: true, deload_origin_week: true })
 export const proposalSchema = z.object({
-  kind: z.enum(['load', 'muscle', 'program']),
+  kind: z.enum(['load', 'muscle', 'program', 'nutrition']),
   rows: z.array(planPatchSchema), weeks: z.array(weekPatchSchema),
-  editable: z.enum(['weight', 'sets', 'deload', 'none']),
+  editable: z.enum(['weight', 'sets', 'deload', 'none', 'kcal']),
   forced: z.boolean(), postpone_allowed: z.boolean(),
+  nutrition: z.object({ based_on_id: z.uuid(), effective_from: z.iso.date(), kcal: z.number().int().positive(), protein_g: z.number().int().nonnegative(), carbs_g: z.number().int().nonnegative(), fat_g: z.number().int().nonnegative() }).strict().optional(),
 }).strict()
 export type Proposal = z.infer<typeof proposalSchema>
 export type PlanPatch = Proposal['rows'][number]
 export type WeekPatch = Proposal['weeks'][number]
 export interface Suggestion {
-  target_type: 'exercise' | 'muscle' | 'program'
+  target_type: 'exercise' | 'muscle' | 'program' | 'nutrition'
   target_ref: string
   rule_id: string
   reason: string

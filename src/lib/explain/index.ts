@@ -24,10 +24,16 @@ export const templates = {
   'D-restore': '第 {sourceWeek} 週已減量；第 {nextWeek} 週回到減量前的組數、重量與 RIR。',
   N0: '目前體重與飲食資料未觸發熱量調整，維持 {kcal} kcal。',
   N1: '飲食紀錄完整率 {completion}%，低於 70%；先補紀錄，不調整熱量。',
-  N2: '連續 2 週增重低於 0.1 kg／週，建議每日增加 150 kcal。',
+  N2: '近兩週增重 {gainBefore}、{gain} kg／週，皆低於 0.1 kg；紀錄完整率 {completion}%，建議每日增加 150 kcal。',
   N3: '本週增重 {gain} kg／週、4 週腰圍變化 {waist} cm，建議每日減少 150 kcal。',
   N4: '蛋白質週平均 {protein} g，低於 130 g，先補蛋白質，不因此修改熱量。',
   N5: '距上次熱量調整 {weeks} 週，未滿 2 週，維持觀察。',
+  N6: '目標熱量不足以保留蛋白質與脂肪，請先檢查營養目標，暫不調整。',
+  'N-no-target': '尚無當日生效的營養目標，請先匯入個人資料。',
+  'N-no-weight': '體重資料不足；每週至少記錄 4 天，才能比較 7 日平均。',
+  'N-future': '已有尚未生效的熱量調整，先觀察，不重複調整。',
+  'N-target': '每日熱量由 {before} 調整為 {after} kcal；蛋白質 {protein} g、脂肪 {fat} g 維持，碳水改為 {carbs} g（差額以每克 4 kcal 換算，四捨五入至整克）。',
+  P1: '今日蛋白質還差 {remaining} g，可補充乳清、茶葉蛋或優格。',
   USER_EDIT: '使用者修改：{name} 的{field}由 {before} 調整為 {after}。',
 } as const
 export type RuleId = keyof typeof templates

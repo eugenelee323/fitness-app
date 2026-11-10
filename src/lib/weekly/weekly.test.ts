@@ -136,7 +136,7 @@ describe('結算與明確確認才能套用', () => {
     const id = await settleWeek(1, false, database); await decideAll(id)
     await startWorkout(input.weeks[1].id, 'push', database)
     const before = await database.rows('planned_exercises').toArray()
-    await expect(applyRecommendations(id, database)).rejects.toThrow('已有訓練')
+    await expect(applyRecommendations(id, database)).rejects.toThrow(/已有訓練|資料已變動/)
     expect(await database.rows('planned_exercises').toArray()).toEqual(before)
     expect(await database.rows('plan_changes').count()).toBe(0)
   })

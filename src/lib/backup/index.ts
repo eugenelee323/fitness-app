@@ -6,7 +6,7 @@ import { RULES_VERSION } from '../rules'
 import { taipeiDate } from '../time'
 
 export type Snapshot = Record<TableName, Record<string, unknown>[]>
-const baseTables = tableNames.filter(n => !['workout_drafts', 'app_meta', 'import_links'].includes(n))
+const baseTables = tableNames.filter(n => !['workout_drafts', 'app_meta', 'import_links', 'favorite_meals'].includes(n))
 const envelope = z.object({ version: z.literal(1), exportedAt: z.iso.datetime({ offset: true }), rulesVersion: z.string().min(1), tables: z.record(z.string(), z.array(z.record(z.string(), z.unknown()))) }).strict()
 
 export function validateSnapshot(tables: Snapshot) {
@@ -30,7 +30,7 @@ export function validateSnapshot(tables: Snapshot) {
   unique('workout_drafts', ['session_id'])
   if (tables.user_profiles.length > 1 || tables.workout_drafts.length > 1) throw new Error('最多一份個人資料與一份進行中訓練')
   for (const [from, field, to] of [
-    ['exercise_alternatives', 'exercise_id', 'exercises'], ['exercise_alternatives', 'alt_exercise_id', 'exercises'],
+    ['nutrition_targets', 'source_analysis_id', 'weekly_analyses'], ['exercise_alternatives', 'exercise_id', 'exercises'], ['exercise_alternatives', 'alt_exercise_id', 'exercises'],
     ['program_weeks', 'program_id', 'programs'], ['planned_exercises', 'program_week_id', 'program_weeks'], ['planned_exercises', 'exercise_id', 'exercises'],
     ['workout_sessions', 'program_week_id', 'program_weeks'], ['workout_sets', 'session_id', 'workout_sessions'], ['workout_sets', 'exercise_id', 'exercises'], ['workout_sets', 'planned_exercise_id', 'planned_exercises'],
     ['pain_reports', 'session_id', 'workout_sessions'], ['pain_reports', 'exercise_id', 'exercises'], ['weekly_analyses', 'program_id', 'programs'],
@@ -84,4 +84,4 @@ export async function restoreBackup(preview: BackupPreview, database: FitnessDB 
     for (const name of tableNames) if (preview.tables[name].length) await database.table(name).bulkAdd(preview.tables[name])
   })
 }
-export const tableLabels: Record<TableName, string> = { user_profiles: '個人資料', nutrition_targets: '營養目標', exercises: '動作庫', exercise_alternatives: '替代動作', programs: '訓練計畫', program_weeks: '計畫週次', planned_exercises: '計畫動作', workout_sessions: '訓練紀錄', workout_sets: '實際組數', pain_reports: '疼痛紀錄', weekly_analyses: '每週分析', recommendations: '建議', plan_changes: '課表變更', foods: '食物', meals: '餐點', meal_items: '餐點項目', body_metrics: '身體數據', workout_drafts: '進行中訓練', app_meta: '本機設定', import_links: '匯入對應' }
+export const tableLabels: Record<TableName, string> = { favorite_meals: '常用餐點', user_profiles: '個人資料', nutrition_targets: '營養目標', exercises: '動作庫', exercise_alternatives: '替代動作', programs: '訓練計畫', program_weeks: '計畫週次', planned_exercises: '計畫動作', workout_sessions: '訓練紀錄', workout_sets: '實際組數', pain_reports: '疼痛紀錄', weekly_analyses: '每週分析', recommendations: '建議', plan_changes: '課表變更', foods: '食物', meals: '餐點', meal_items: '餐點項目', body_metrics: '身體數據', workout_drafts: '進行中訓練', app_meta: '本機設定', import_links: '匯入對應' }

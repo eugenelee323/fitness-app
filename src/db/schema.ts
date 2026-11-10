@@ -12,9 +12,12 @@ const draftEntry = z.object({ id, set_no: integer.min(1), side: z.enum(['both', 
 const draftItem = z.object({ id, planned_exercise_id: id, exercise_id: id, order_no: integer.min(1), sets: integer.min(1), base_sets: integer.min(1).optional(), base_rir: integer.max(5).optional(), base_weight_kg: nullable(num), target_reps: integer.min(1).optional(), is_paused: z.boolean().optional(), rep_min: integer.min(1), rep_max: integer.min(1), target_rir: integer.max(5), target_weight_kg: nullable(num), rest_sec: integer, entries: z.array(draftEntry) }).strict()
 export const muscle = z.enum(['chest', 'back', 'front_delt', 'side_delt', 'rear_delt', 'biceps', 'triceps', 'quads', 'hamstrings', 'glutes'])
 
+export const mealType = z.enum(['breakfast', 'lunch', 'dinner', 'snack'])
+export const mealValueSchema = z.object({ name: text, grams: num.positive(), kcal: num, protein_g: num, carbs_g: num, fat_g: num, is_estimate: z.boolean() }).strict()
+
 export const schemas = {
   user_profiles: z.object({ id, sex: nullable(z.enum(['male', 'female'])), birth_date: nullable(date), height_cm: nullable(num.positive()), goal: text.default('hypertrophy'), activity_level: z.enum(['sedentary', 'light', 'moderate']).default('sedentary'), limitations: z.array(text).default([]), intensity_scale: z.enum(['RIR', 'RPE']).default('RIR'), timezone: z.literal('Asia/Taipei').default('Asia/Taipei') }).strict(),
-  nutrition_targets: z.object({ id, effective_from: date, bmr_kcal: nullable(integer), tdee_kcal: nullable(integer), kcal: integer, protein_g: integer, carbs_g: integer, fat_g: integer, reason: nullable(z.string()) }).strict(),
+  nutrition_targets: z.object({ id, created_at: z.iso.datetime({ offset: true }).optional(), source_analysis_id: nullable(id), effective_from: date, bmr_kcal: nullable(integer), tdee_kcal: nullable(integer), kcal: integer, protein_g: integer, carbs_g: integer, fat_g: integer, reason: nullable(z.string()) }).strict(),
   exercises: z.object({ id, code: text, name_zh: text, name_en: text, primary_muscle: muscle, secondary_muscles: z.array(muscle), load_type: z.enum(['barbell', 'dumbbell_pair', 'dumbbell_single', 'machine', 'cable', 'bodyweight', 'assisted']), increment_kg: num.positive(), is_compound: z.boolean(), unilateral: z.boolean(), loads_lower_back: z.boolean(), cues: nullable(z.string()) }).strict(),
   exercise_alternatives: z.object({ exercise_id: id, alt_exercise_id: id, reason: nullable(z.string()) }).strict(),
   programs: z.object({ id, start_date: date, weeks: z.literal(12).default(12), status: z.enum(['active', 'completed', 'paused']).default('active') }).strict(),
@@ -27,10 +30,11 @@ export const schemas = {
   recommendations: z.object({ id, analysis_id: id, target_type: z.enum(['exercise', 'muscle', 'program', 'nutrition']), target_ref: text, before: json.optional(), after: json.optional(), rule_id: text, reason: text, original_after: json.optional(), original_reason: z.string().optional(), status: z.enum(['pending', 'accepted', 'rejected', 'modified']).default('pending'), decided_at: nullable(z.iso.datetime({ offset: true })) }).strict(),
   plan_changes: z.object({ id, recommendation_id: nullable(id), planned_exercise_id: nullable(id), change: json, applied_at: z.iso.datetime({ offset: true }) }).strict(),
   foods: z.object({ id, name: text, kcal_100g: num, protein_100g: num, carbs_100g: num, fat_100g: num, source: z.enum(['database', 'label', 'custom']) }).strict(),
-  meals: z.object({ id, date, meal_type: z.enum(['breakfast', 'lunch', 'dinner', 'snack']), photo_path: z.null().default(null), ai_raw: z.null().default(null), confirmed: z.boolean().default(false) }).strict(),
+  meals: z.object({ id, date, updated_at: z.iso.datetime({ offset: true }).optional(), entry_source: z.enum(['manual', 'paste', 'favorite']).optional(), meal_type: mealType, photo_path: z.null().default(null), ai_raw: z.null().default(null), confirmed: z.boolean().default(false) }).strict(),
   meal_items: z.object({ id, meal_id: id, food_id: nullable(id), name: text, grams: num, kcal: num, protein_g: num, carbs_g: num, fat_g: num, is_estimate: z.boolean().default(true), kcal_low: nullable(num), kcal_high: nullable(num) }).strict(),
   body_metrics: z.object({ id, date, weight_kg: nullable(num.positive()), waist_cm: nullable(num.positive()), bodyfat_pct: nullable(num.max(100)) }).strict(),
   workout_drafts: z.object({ id, session_id: id, items: z.array(draftItem), bodyweight: z.string(), fatigue: z.string(), sleep_h: z.string(), pains: z.array(z.object({ id, body_part: z.string(), score: z.string(), sharp: z.boolean().optional(), exercise_id: nullable(id) }).strict()), timer: z.object({ ends_at: num.nullable(), remaining_ms: num, paused: z.boolean() }).strict(), updated_at: z.iso.datetime({ offset: true }) }).strict(),
+  favorite_meals: z.object({ id, name: text, meal_type: mealType, items: z.array(mealValueSchema).min(1), created_at: z.iso.datetime({ offset: true }) }).strict(),
   app_meta: z.object({ key: text, value: json }).strict(),
   import_links: z.object({ key: text, entity_id: id }).strict(),
 } as const

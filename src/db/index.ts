@@ -17,15 +17,15 @@ export const stores: Record<TableName, string> = {
   plan_changes: 'id, recommendation_id, planned_exercise_id',
   foods: 'id, name', meals: 'id, date', meal_items: 'id, meal_id, food_id',
   body_metrics: 'id, &date',
-  workout_drafts: 'id, &session_id', app_meta: 'key', import_links: 'key, entity_id',
+  favorite_meals: 'id, name', workout_drafts: 'id, &session_id', app_meta: 'key', import_links: 'key, entity_id',
 }
 
 export class FitnessDB extends Dexie {
   constructor(name = 'fitness-app') {
     super(name)
     // 後續結構異動須新增 version(n).stores(...).upgrade(...)，保留舊資料。
-    const { workout_drafts: _drafts, app_meta: _meta, import_links: _links, ...originalStores } = stores
-    void [_drafts, _meta, _links]
+    const { workout_drafts: _drafts, app_meta: _meta, import_links: _links, favorite_meals: _favorites, ...originalStores } = stores
+    void [_drafts, _meta, _links, _favorites]
     this.version(1).stores(originalStores)
     // 版本 2 新增週次排序索引；Dexie 原地建立索引，不刪除既有紀錄。
     this.version(2).stores({ program_weeks: 'id, program_id, week_no, &[program_id+week_no]' })
@@ -37,6 +37,7 @@ export class FitnessDB extends Dexie {
       if (normalized.weeks.length) await tx.table('program_weeks').bulkPut(normalized.weeks)
       if (normalized.plans.length) await tx.table('planned_exercises').bulkPut(normalized.plans)
     })
+    this.version(5).stores({ favorite_meals: stores.favorite_meals, nutrition_targets: 'id, effective_from, created_at, source_analysis_id' })
     for (const name of Object.keys(stores) as TableName[]) {
       this.table(name).hook('creating', (_key, obj: unknown) => { schemas[name].parse(obj) })
       this.table(name).hook('updating', (changes, _key, obj: object) => {

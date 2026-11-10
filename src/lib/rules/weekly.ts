@@ -1,3 +1,4 @@
+import type { NutritionInput, NutritionWeek } from './nutrition'
 import type { Row } from '../../db/schema'
 import { e1rm, effectiveLoad, fractionalSets, progressStatus, setVolume, type Muscle } from './index'
 import { exerciseRule, loggedRule, muscleLabels, weeklyCompletion } from './workout'
@@ -5,7 +6,7 @@ import { exerciseRule, loggedRule, muscleLabels, weeklyCompletion } from './work
 export const PROGRAM_START = '2026-11-09'
 export const MAIN_LIFTS = ['bench_bb', 'pullup', 'leg_press']
 export type Progress = ReturnType<typeof progressStatus>
-export interface WeeklyInput {
+export interface WeeklyInput extends NutritionInput {
   program: Row<'programs'>
   weeks: Row<'program_weeks'>[]
   plans: Row<'planned_exercises'>[]
@@ -33,6 +34,7 @@ export interface ExerciseMetric {
   lumbarPain: boolean
 }
 export interface WeekMetrics {
+  nutrition?: NutritionWeek
   weekNo: number
   menu: 'A' | 'B'
   isDeload: boolean

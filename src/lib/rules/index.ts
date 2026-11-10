@@ -1,4 +1,4 @@
-export const RULES_VERSION = '2026.11-1';
+export const RULES_VERSION = '2026.11-2';
 
 export type Muscle = 'chest' | 'back' | 'front_delt' | 'side_delt' | 'rear_delt'
   | 'biceps' | 'triceps' | 'quads' | 'hamstrings' | 'glutes';

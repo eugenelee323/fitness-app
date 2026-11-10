@@ -22,7 +22,7 @@ function fixture(overrides = {}) {
 describe('內建資料與版本 1', () => {
   it('建立第 11 節應用資料表與持續訓練狀態表，不使用 auth 或 user_id', () => {
     expect(database.tables.map(t => t.name).sort()).toEqual([...tableNames].sort())
-    expect(database.verno).toBe(4)
+    expect(database.verno).toBe(5)
   })
   it('建立完整動作、替代動作、216 筆課表且可重複啟動', async () => {
     await seedDatabase(database)

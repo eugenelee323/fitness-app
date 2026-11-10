@@ -1,3 +1,6 @@
+import { taipeiDate } from '../time'
+import { nutritionWeek, adjustedNutrition, nutritionEffectiveDate } from '../rules/nutrition'
+import { nutritionRecommendations } from '../rules/nutritionPlanning'
 import { z } from 'zod'
 import { db, type FitnessDB } from '../../db'
 import { schemas, type Row } from '../../db/schema'
@@ -17,7 +20,7 @@ export async function loadWeeklyInput(database: FitnessDB = db): Promise<WeeklyI
   const drafts = await database.rows('workout_drafts').toArray()
   const sessions = (await database.rows('workout_sessions').toArray()).filter(s => weekIds.has(s.program_week_id ?? '') && !drafts.some(d => d.session_id === s.id))
   const ids = new Set(sessions.map(s => s.id))
-  return { program, weeks, plans: (await database.rows('planned_exercises').toArray()).filter(p => weekIds.has(p.program_week_id)), sessions, sets: (await database.rows('workout_sets').toArray()).filter(s => ids.has(s.session_id)), pains: (await database.rows('pain_reports').toArray()).filter(p => ids.has(p.session_id)), exercises: await database.rows('exercises').toArray(), alternatives: await database.rows('exercise_alternatives').toArray() }
+  return { meals: await database.rows('meals').toArray(), mealItems: await database.rows('meal_items').toArray(), nutritionTargets: await database.rows('nutrition_targets').toArray(), bodyMetrics: await database.rows('body_metrics').toArray(), allSessions: await database.rows('workout_sessions').toArray(), program, weeks, plans: (await database.rows('planned_exercises').toArray()).filter(p => weekIds.has(p.program_week_id)), sessions, sets: (await database.rows('workout_sets').toArray()).filter(s => ids.has(s.session_id)), pains: (await database.rows('pain_reports').toArray()).filter(p => ids.has(p.session_id)), exercises: await database.rows('exercises').toArray(), alternatives: await database.rows('exercise_alternatives').toArray() }
 }
 export function sourceFingerprint(input: WeeklyInput): string {
   const canonical = (value: unknown): unknown => {
@@ -43,13 +46,13 @@ export async function settleWeek(weekNo: number, recalculate = false, database: 
     if (sessions.some(s => drafts.some(d => d.session_id === s.id))) throw new Error('該週還有進行中的訓練，請先結束再結算。')
     const existing = await database.rows('weekly_analyses').where('[program_id+week_no]').equals([input.program.id, weekNo]).first()
     if (existing && !recalculate) return existing.id
-    const metrics = aggregateWeek(input, weekNo)
+    const metrics = { ...aggregateWeek(input, weekNo), nutrition: nutritionWeek(input, weekNo, taipeiDate(now)) }
     const id = existing?.id ?? crypto.randomUUID()
     if (existing?.applied_at) {
       await database.rows('weekly_analyses').put({ ...existing, metrics: jsonValue(metrics), computed_at: now.toISOString() })
       return id
     }
-    const proposed = planRecommendations(input, metrics)
+    const proposed = [...planRecommendations(input, metrics), ...nutritionRecommendations(metrics.nutrition, weekNo)]
     const rows = proposed.map(rec => schemas.recommendations.parse({ ...rec, id: crypto.randomUUID(), analysis_id: id, before: jsonValue(rec.before), after: jsonValue(rec.after), original_after: jsonValue(rec.after), original_reason: rec.reason, status: 'pending' }))
     if (existing) await database.rows('recommendations').where('analysis_id').equals(id).delete()
     await database.rows('weekly_analyses').put(schemas.weekly_analyses.parse({ id, program_id: input.program.id, week_no: weekNo, rules_version: RULES_VERSION, metrics: jsonValue(metrics), source_fingerprint: sourceFingerprint(input), computed_at: now.toISOString() }))
@@ -70,7 +73,7 @@ export async function autoSettle(database: FitnessDB = db, now = new Date()) {
   }
   return ids
 }
-export interface EditRecommendation { rows?: { id: string; value: number }[]; deload?: boolean }
+export interface EditRecommendation { rows?: { id: string; value: number }[]; deload?: boolean; kcal?: number }
 export async function decideRecommendation(id: string, status: 'accepted' | 'rejected' | 'modified', edit?: EditRecommendation, database: FitnessDB = db) {
   await database.transaction('rw', database.tables, async () => {
     const rec = await database.rows('recommendations').get(id)
@@ -84,7 +87,13 @@ export async function decideRecommendation(id: string, status: 'accepted' | 'rej
     let after = proposalSchema.parse(original.after)
     let reason = original.reason
     if (status === 'modified') {
-      if (after.editable === 'deload') {
+      if (after.editable === 'kcal') {
+        const target = input.nutritionTargets?.find(t => t.id === after.nutrition?.based_on_id)
+        if (!target || edit?.kcal == null || !after.nutrition) throw new Error('請填寫目標熱量。')
+        const goal = adjustedNutrition(target, edit.kcal)
+        after = { ...after, nutrition: { ...after.nutrition, ...goal } }
+        reason += ' ' + explain('USER_EDIT', { name: '每日營養', field: '熱量（kcal）', before: target.kcal, after: goal.kcal }) + ' ' + explain('N-target', { before: target.kcal, after: goal.kcal, protein: goal.protein_g, fat: goal.fat_g, carbs: goal.carbs_g })
+      } else if (after.editable === 'deload') {
         if (edit?.deload !== true || !after.postpone_allowed) throw new Error('只能將可延後的減量改為照原定時間執行；不得延後超過 2 週。')
         const forced = planRecommendations(input, aggregateWeek(input, analysis.week_no), true).find(r => r.target_type === 'program')!
         after = forced.after; reason = forced.reason
@@ -112,13 +121,15 @@ export async function applyRecommendations(id: string, database: FitnessDB = db,
     if (!analysis) throw new Error('找不到每週分析。')
     if (analysis.applied_at) return
     const metrics = metricsSchema.parse(analysis.metrics)
-    if (!metrics.sessionCount || analysis.week_no === 12) throw new Error('沒有可套用的下週課表。')
+
     const recs = await database.rows('recommendations').where('analysis_id').equals(id).toArray()
+    if ((!metrics.sessionCount || analysis.week_no === 12) && !recs.some(r => r.target_type === 'nutrition')) throw new Error('沒有可套用的下週課表。')
     if (recs.some(r => r.status === 'pending')) throw new Error('請先逐條接受、拒絕或修改全部建議。')
     const input = await loadWeeklyInput(database)
     if (!input || sourceFingerprint(input) !== analysis.source_fingerprint) throw new Error('結算後資料已變動，請重新結算再產生課表。')
     const accepted = recs.filter(r => r.status === 'accepted' || r.status === 'modified')
     const proposals = accepted.map(r => proposalSchema.parse(r.after))
+    if (proposals.filter(p => p.nutrition).length > 1) throw new Error('同一週只能調整一次營養目標。')
     const merged = mergeProposals(input, proposals)
     const rowIds = new Set(proposals.flatMap(p => p.rows.map(r => r.id)))
     const weekIds = new Set(proposals.flatMap(p => p.weeks.map(w => w.id)))
@@ -142,6 +153,15 @@ export async function applyRecommendations(id: string, database: FitnessDB = db,
     // 先寫審核軌跡，再更新課表，同一交易失敗時會全部回復。
     for (const rec of accepted) {
       const proposal = proposalSchema.parse(rec.after)
+      if (proposal.nutrition) {
+        const goal = proposal.nutrition
+        const before = input.nutritionTargets?.find(t => t.id === goal.based_on_id)
+        if (!before) throw new Error('營養目標已失效，請重新結算。')
+        const values = adjustedNutrition(before, goal.kcal)
+        const after = schemas.nutrition_targets.parse({ ...before, ...values, id: crypto.randomUUID(), effective_from: nutritionEffectiveDate(goal.effective_from, taipeiDate(now)), created_at: at, source_analysis_id: id, reason: rec.reason })
+        await database.rows('nutrition_targets').add(after)
+        await database.rows('plan_changes').add({ id: crypto.randomUUID(), recommendation_id: rec.id, change: jsonValue({ before, after, rule_id: rec.rule_id }), applied_at: at })
+      }
       for (const patch of proposal.rows) {
         const before = input.plans.find(p => p.id === patch.id)!
         const after = merged.rows.find(p => p.id === patch.id)!

@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { NavLink, Route, Routes, Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from './db'
+import { targetForDate } from './lib/rules/nutrition'
+import { useClock } from './hooks/useClock'
+import { taipeiDate } from './lib/time'
+import { Nutrition } from './pages/Nutrition'
 import { Dashboard } from './pages/Dashboard'
 import { Training } from './pages/Training'
 import { History, HistoryDetail } from './pages/History'
@@ -73,7 +77,9 @@ function PageTitle({ kicker, title, description }: { kicker: string; title: stri
 }
 
 function Settings({ persisted }: { persisted: boolean | null }) {
-  const data = useLiveQuery(async () => ({ profile: await db.rows('user_profiles').toCollection().first(), targets: await db.rows('nutrition_targets').orderBy('effective_from').last(), metrics: await db.rows('body_metrics').orderBy('date').last(), sessions: await db.rows('workout_sessions').count(), sets: await db.rows('workout_sets').count() }))
+  const now = useClock()
+  const today = taipeiDate(new Date(now))
+  const data = useLiveQuery(async () => ({ profile: await db.rows('user_profiles').toCollection().first(), targets: targetForDate(await db.rows('nutrition_targets').toArray(), today), metrics: await db.rows('body_metrics').orderBy('date').last(), sessions: await db.rows('workout_sessions').count(), sets: await db.rows('workout_sets').count() }), [today])
   const profile = data?.profile
   return <><PageTitle kicker="你的裝置，你的資料" title="設定" description="管理個人初始資料與裝置儲存。" />
     <SettlementPanel /><BackupPanel /><ImportPanel onDone={() => {}} />
@@ -126,7 +132,7 @@ export default function App() {
   if (onboarding) return <main className="welcome"><div className="brand-mark">12</div><PageTitle kicker="12週增肌" title="把每一次訓練，累積成進步。" description="你的 12 週計畫已準備好。先帶入個人資料，或直接開始瀏覽。" /><ImportPanel initial onDone={finish} /><p className="footer-note">無需帳號 · 資料保存在此裝置</p></main>
   return <div className="app-shell"><header className="topbar"><Link to="/" className="brand"><span className="brand-mark small">12</span>12週增肌</Link><span className="local-badge"><i />本機儲存</span></header>
     <main id="main" className="main-content">{weeklyNotice && <div className="note" role="status">{weeklyNotice}<Link className="text-link" to="/analysis">查看分析 →</Link></div>}{offlineReady && <div role="status" className="note">已準備好離線使用。</div>}{updateReady && <div role="status" className="note">有新版本可使用。<button className="secondary" onClick={() => window.dispatchEvent(new Event('app-apply-update'))}>重新載入更新</button></div>}
-      <Routes><Route path="/" element={<Dashboard />} /><Route path="/training" element={<Training />} /><Route path="/plan" element={<Plan />} /><Route path="/history" element={<History />} /><Route path="/history/:id" element={<HistoryDetail />} /><Route path="/nutrition" element={<><PageTitle kicker="好好吃，也好好記" title="飲食" description="每日飲食與營養目標，將在後續階段加入。" /><section className="card placeholder"><span className="placeholder-icon" aria-hidden="true">◉</span><h2>準備好每一餐</h2><p>這裡將呈現你的餐點紀錄與營養進度。</p></section></>} />
+      <Routes><Route path="/" element={<Dashboard />} /><Route path="/training" element={<Training />} /><Route path="/plan" element={<Plan />} /><Route path="/history" element={<History />} /><Route path="/history/:id" element={<HistoryDetail />} /><Route path="/nutrition" element={<Nutrition />} />
         <Route path="/analysis" element={<AnalysisIndex />} /><Route path="/analysis/:week" element={<WeeklyReport />} /><Route path="/analysis/:week/recommendations" element={<Recommendations />} /><Route path="/settings" element={<Settings persisted={persisted} />} />
         <Route path="*" element={<><h1>找不到頁面</h1><Link to="/">回到首頁</Link></>} />
       </Routes></main>
