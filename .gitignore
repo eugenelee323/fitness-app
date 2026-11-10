@@ -3,3 +3,6 @@ dist/
 my-data.json
 *backup*.json
 .env*
+coverage/
+*.tsbuildinfo
+.playwright/

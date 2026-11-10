@@ -1,0 +1,688 @@
+{
+  "bCodes": [
+    "bench_bb",
+    "incline_press_db",
+    "lateral_mc",
+    "shoulder_press_mc",
+    "cable_fly",
+    "lateral_leanaway_db",
+    "dip_mc",
+    "pushdown_rope",
+    "lying_ext_db",
+    "pullup",
+    "row_cable",
+    "leg_curl_lying",
+    "pulldown_neutral",
+    "leg_press",
+    "curl_cable",
+    "rear_fly_cable",
+    "hammer_curl_db",
+    "rear_raise_chest_sup"
+  ],
+  "a": [
+    {
+      "rest_sec": 180,
+      "rep_max": 8,
+      "code": "bench_bb",
+      "day_type": "push",
+      "sets": 4,
+      "target_rir": 2,
+      "target_weight_kg": 67.5,
+      "order_no": 1,
+      "rep_min": 6
+    },
+    {
+      "rest_sec": 120,
+      "rep_max": 12,
+      "code": "incline_press_mc",
+      "day_type": "push",
+      "sets": 3,
+      "target_rir": 2,
+      "target_weight_kg": 40.0,
+      "order_no": 2,
+      "rep_min": 8
+    },
+    {
+      "rest_sec": 60,
+      "rep_max": 15,
+      "code": "lateral_db",
+      "day_type": "push",
+      "sets": 4,
+      "target_rir": 1,
+      "target_weight_kg": 7.0,
+      "order_no": 3,
+      "rep_min": 12
+    },
+    {
+      "rest_sec": 120,
+      "rep_max": 10,
+      "code": "shoulder_press_db",
+      "day_type": "push",
+      "sets": 3,
+      "target_rir": 2,
+      "target_weight_kg": 18.0,
+      "order_no": 4,
+      "rep_min": 8
+    },
+    {
+      "rest_sec": 75,
+      "rep_max": 15,
+      "code": "pec_deck",
+      "day_type": "push",
+      "sets": 3,
+      "target_rir": 1,
+      "target_weight_kg": 40.0,
+      "order_no": 5,
+      "rep_min": 12
+    },
+    {
+      "rest_sec": 60,
+      "rep_max": 15,
+      "code": "lateral_cable",
+      "day_type": "push",
+      "sets": 3,
+      "target_rir": 1,
+      "target_weight_kg": 5.5,
+      "order_no": 6,
+      "rep_min": 12
+    },
+    {
+      "rest_sec": 120,
+      "rep_max": 12,
+      "code": "dips",
+      "day_type": "push",
+      "sets": 2,
+      "target_rir": 2,
+      "target_weight_kg": 0.0,
+      "order_no": 7,
+      "rep_min": 8
+    },
+    {
+      "rest_sec": 60,
+      "rep_max": 12,
+      "code": "pushdown_cable",
+      "day_type": "push",
+      "sets": 3,
+      "target_rir": 1,
+      "target_weight_kg": 20.0,
+      "order_no": 8,
+      "rep_min": 10
+    },
+    {
+      "rest_sec": 60,
+      "rep_max": 12,
+      "code": "oh_ext_cable",
+      "day_type": "push",
+      "sets": 3,
+      "target_rir": 1,
+      "target_weight_kg": 18.0,
+      "order_no": 9,
+      "rep_min": 10
+    },
+    {
+      "rest_sec": 180,
+      "rep_max": 8,
+      "code": "pullup",
+      "day_type": "pull",
+      "sets": 4,
+      "target_rir": 2,
+      "target_weight_kg": 0.0,
+      "order_no": 1,
+      "rep_min": 6
+    },
+    {
+      "rest_sec": 150,
+      "rep_max": 10,
+      "code": "row_chest_sup_mc",
+      "day_type": "pull",
+      "sets": 3,
+      "target_rir": 2,
+      "target_weight_kg": 50.0,
+      "order_no": 2,
+      "rep_min": 8
+    },
+    {
+      "rest_sec": 180,
+      "rep_max": 10,
+      "code": "rdl_bb",
+      "day_type": "pull",
+      "sets": 3,
+      "target_rir": 2,
+      "target_weight_kg": 50.0,
+      "order_no": 3,
+      "rep_min": 8
+    },
+    {
+      "rest_sec": 120,
+      "rep_max": 12,
+      "code": "pulldown",
+      "day_type": "pull",
+      "sets": 3,
+      "target_rir": 2,
+      "target_weight_kg": 51.0,
+      "order_no": 4,
+      "rep_min": 10
+    },
+    {
+      "rest_sec": 150,
+      "rep_max": 12,
+      "code": "leg_press",
+      "day_type": "pull",
+      "sets": 4,
+      "target_rir": 2,
+      "target_weight_kg": null,
+      "order_no": 5,
+      "rep_min": 10
+    },
+    {
+      "rest_sec": 60,
+      "rep_max": 12,
+      "code": "curl_mc",
+      "day_type": "pull",
+      "sets": 3,
+      "target_rir": 1,
+      "target_weight_kg": 20.0,
+      "order_no": 6,
+      "rep_min": 8
+    },
+    {
+      "rest_sec": 60,
+      "rep_max": 15,
+      "code": "face_pull",
+      "day_type": "pull",
+      "sets": 3,
+      "target_rir": 1,
+      "target_weight_kg": 15.0,
+      "order_no": 7,
+      "rep_min": 12
+    },
+    {
+      "rest_sec": 60,
+      "rep_max": 12,
+      "code": "incline_curl_db",
+      "day_type": "pull",
+      "sets": 4,
+      "target_rir": 1,
+      "target_weight_kg": 8.0,
+      "order_no": 8,
+      "rep_min": 10
+    },
+    {
+      "rest_sec": 60,
+      "rep_max": 15,
+      "code": "reverse_pec_deck",
+      "day_type": "pull",
+      "sets": 2,
+      "target_rir": 1,
+      "target_weight_kg": 20.0,
+      "order_no": 9,
+      "rep_min": 12
+    }
+  ],
+  "exercises": [
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Barbell Bench Press",
+      "code": "bench_bb",
+      "primary_muscle": "chest",
+      "secondary_muscles": [
+        "triceps",
+        "front_delt"
+      ],
+      "is_compound": true,
+      "loads_lower_back": false,
+      "increment_kg": 2.5,
+      "name_zh": "槓鈴臥推",
+      "load_type": "barbell"
+    },
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Cable Fly",
+      "code": "cable_fly",
+      "primary_muscle": "chest",
+      "secondary_muscles": [],
+      "is_compound": false,
+      "loads_lower_back": false,
+      "increment_kg": 2.5,
+      "name_zh": "繩索夾胸",
+      "load_type": "cable"
+    },
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Cable Curl",
+      "code": "curl_cable",
+      "primary_muscle": "biceps",
+      "secondary_muscles": [],
+      "is_compound": false,
+      "loads_lower_back": false,
+      "increment_kg": 2.5,
+      "name_zh": "繩索彎舉",
+      "load_type": "cable"
+    },
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Machine Biceps Curl",
+      "code": "curl_mc",
+      "primary_muscle": "biceps",
+      "secondary_muscles": [],
+      "is_compound": false,
+      "loads_lower_back": false,
+      "increment_kg": 2.5,
+      "name_zh": "二頭彎舉機",
+      "load_type": "machine"
+    },
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Machine Dip",
+      "code": "dip_mc",
+      "primary_muscle": "chest",
+      "secondary_muscles": [
+        "triceps"
+      ],
+      "is_compound": true,
+      "loads_lower_back": false,
+      "increment_kg": 5.0,
+      "name_zh": "器械撐體",
+      "load_type": "machine"
+    },
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Dips",
+      "code": "dips",
+      "primary_muscle": "chest",
+      "secondary_muscles": [
+        "triceps",
+        "front_delt"
+      ],
+      "is_compound": true,
+      "loads_lower_back": false,
+      "increment_kg": 2.5,
+      "name_zh": "雙槓撐體",
+      "load_type": "bodyweight"
+    },
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Face Pull",
+      "code": "face_pull",
+      "primary_muscle": "rear_delt",
+      "secondary_muscles": [],
+      "is_compound": false,
+      "loads_lower_back": false,
+      "increment_kg": 2.5,
+      "name_zh": "臉拉",
+      "load_type": "cable"
+    },
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Hammer Curl",
+      "code": "hammer_curl_db",
+      "primary_muscle": "biceps",
+      "secondary_muscles": [],
+      "is_compound": false,
+      "loads_lower_back": false,
+      "increment_kg": 2.0,
+      "name_zh": "錘式彎舉",
+      "load_type": "dumbbell_pair"
+    },
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Incline Dumbbell Curl",
+      "code": "incline_curl_db",
+      "primary_muscle": "biceps",
+      "secondary_muscles": [],
+      "is_compound": false,
+      "loads_lower_back": false,
+      "increment_kg": 2.0,
+      "name_zh": "上斜啞鈴彎舉",
+      "load_type": "dumbbell_pair"
+    },
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Incline Dumbbell Press",
+      "code": "incline_press_db",
+      "primary_muscle": "chest",
+      "secondary_muscles": [
+        "triceps",
+        "front_delt"
+      ],
+      "is_compound": true,
+      "loads_lower_back": false,
+      "increment_kg": 2.0,
+      "name_zh": "上斜啞鈴臥推",
+      "load_type": "dumbbell_pair"
+    },
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Incline Chest Press Machine",
+      "code": "incline_press_mc",
+      "primary_muscle": "chest",
+      "secondary_muscles": [
+        "triceps",
+        "front_delt"
+      ],
+      "is_compound": true,
+      "loads_lower_back": false,
+      "increment_kg": 5.0,
+      "name_zh": "上斜胸推機",
+      "load_type": "machine"
+    },
+    {
+      "cues": null,
+      "unilateral": true,
+      "name_en": "Cable Lateral Raise",
+      "code": "lateral_cable",
+      "primary_muscle": "side_delt",
+      "secondary_muscles": [],
+      "is_compound": false,
+      "loads_lower_back": false,
+      "increment_kg": 1.0,
+      "name_zh": "滑輪單手側平舉",
+      "load_type": "cable"
+    },
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Dumbbell Lateral Raise",
+      "code": "lateral_db",
+      "primary_muscle": "side_delt",
+      "secondary_muscles": [],
+      "is_compound": false,
+      "loads_lower_back": false,
+      "increment_kg": 1.0,
+      "name_zh": "啞鈴側平舉",
+      "load_type": "dumbbell_pair"
+    },
+    {
+      "cues": null,
+      "unilateral": true,
+      "name_en": "Lean-away DB Lateral Raise",
+      "code": "lateral_leanaway_db",
+      "primary_muscle": "side_delt",
+      "secondary_muscles": [],
+      "is_compound": false,
+      "loads_lower_back": false,
+      "increment_kg": 1.0,
+      "name_zh": "側傾單手啞鈴側平舉",
+      "load_type": "dumbbell_single"
+    },
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Machine Lateral Raise",
+      "code": "lateral_mc",
+      "primary_muscle": "side_delt",
+      "secondary_muscles": [],
+      "is_compound": false,
+      "loads_lower_back": false,
+      "increment_kg": 2.5,
+      "name_zh": "側平舉機",
+      "load_type": "machine"
+    },
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Lying Leg Curl",
+      "code": "leg_curl_lying",
+      "primary_muscle": "hamstrings",
+      "secondary_muscles": [],
+      "is_compound": false,
+      "loads_lower_back": false,
+      "increment_kg": 2.5,
+      "name_zh": "俯臥腿彎舉",
+      "load_type": "machine"
+    },
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Leg Press",
+      "code": "leg_press",
+      "primary_muscle": "quads",
+      "secondary_muscles": [
+        "glutes"
+      ],
+      "is_compound": true,
+      "loads_lower_back": false,
+      "increment_kg": 10.0,
+      "name_zh": "腿推機",
+      "load_type": "machine"
+    },
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Lying DB Triceps Extension",
+      "code": "lying_ext_db",
+      "primary_muscle": "triceps",
+      "secondary_muscles": [],
+      "is_compound": false,
+      "loads_lower_back": false,
+      "increment_kg": 1.0,
+      "name_zh": "仰臥啞鈴三頭伸展",
+      "load_type": "dumbbell_pair"
+    },
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Overhead Cable Triceps Extension",
+      "code": "oh_ext_cable",
+      "primary_muscle": "triceps",
+      "secondary_muscles": [],
+      "is_compound": false,
+      "loads_lower_back": false,
+      "increment_kg": 2.5,
+      "name_zh": "過頭繩索三頭伸展",
+      "load_type": "cable"
+    },
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Pec Deck Fly",
+      "code": "pec_deck",
+      "primary_muscle": "chest",
+      "secondary_muscles": [],
+      "is_compound": false,
+      "loads_lower_back": false,
+      "increment_kg": 5.0,
+      "name_zh": "蝴蝶機夾胸",
+      "load_type": "machine"
+    },
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Lat Pulldown",
+      "code": "pulldown",
+      "primary_muscle": "back",
+      "secondary_muscles": [
+        "biceps"
+      ],
+      "is_compound": true,
+      "loads_lower_back": false,
+      "increment_kg": 5.0,
+      "name_zh": "滑輪下拉",
+      "load_type": "cable"
+    },
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Neutral-grip Pulldown",
+      "code": "pulldown_neutral",
+      "primary_muscle": "back",
+      "secondary_muscles": [
+        "biceps"
+      ],
+      "is_compound": true,
+      "loads_lower_back": false,
+      "increment_kg": 5.0,
+      "name_zh": "對握下拉",
+      "load_type": "cable"
+    },
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Pull-up",
+      "code": "pullup",
+      "primary_muscle": "back",
+      "secondary_muscles": [
+        "biceps",
+        "rear_delt"
+      ],
+      "is_compound": true,
+      "loads_lower_back": false,
+      "increment_kg": 2.5,
+      "name_zh": "引體向上",
+      "load_type": "bodyweight"
+    },
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Cable Triceps Pushdown",
+      "code": "pushdown_cable",
+      "primary_muscle": "triceps",
+      "secondary_muscles": [],
+      "is_compound": false,
+      "loads_lower_back": false,
+      "increment_kg": 2.5,
+      "name_zh": "滑輪三頭下壓",
+      "load_type": "cable"
+    },
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Rope Pushdown",
+      "code": "pushdown_rope",
+      "primary_muscle": "triceps",
+      "secondary_muscles": [],
+      "is_compound": false,
+      "loads_lower_back": false,
+      "increment_kg": 2.5,
+      "name_zh": "繩索三頭下壓",
+      "load_type": "cable"
+    },
+    {
+      "cues": "同一天最多一個壓下背動作；腰部疼痛時改用俯臥腿彎舉。",
+      "unilateral": false,
+      "name_en": "Romanian Deadlift",
+      "code": "rdl_bb",
+      "primary_muscle": "hamstrings",
+      "secondary_muscles": [
+        "glutes"
+      ],
+      "is_compound": true,
+      "loads_lower_back": true,
+      "increment_kg": 5.0,
+      "name_zh": "羅馬尼亞硬舉",
+      "load_type": "barbell"
+    },
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Cable Rear Delt Fly",
+      "code": "rear_fly_cable",
+      "primary_muscle": "rear_delt",
+      "secondary_muscles": [],
+      "is_compound": false,
+      "loads_lower_back": false,
+      "increment_kg": 2.5,
+      "name_zh": "繩索後三角飛鳥",
+      "load_type": "cable"
+    },
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Chest-supported Rear Delt Raise",
+      "code": "rear_raise_chest_sup",
+      "primary_muscle": "rear_delt",
+      "secondary_muscles": [],
+      "is_compound": false,
+      "loads_lower_back": false,
+      "increment_kg": 1.0,
+      "name_zh": "上斜凳胸靠反向飛鳥",
+      "load_type": "dumbbell_pair"
+    },
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Reverse Pec Deck",
+      "code": "reverse_pec_deck",
+      "primary_muscle": "rear_delt",
+      "secondary_muscles": [],
+      "is_compound": false,
+      "loads_lower_back": false,
+      "increment_kg": 5.0,
+      "name_zh": "反向蝴蝶機",
+      "load_type": "machine"
+    },
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Seated Cable Row",
+      "code": "row_cable",
+      "primary_muscle": "back",
+      "secondary_muscles": [
+        "biceps",
+        "rear_delt"
+      ],
+      "is_compound": true,
+      "loads_lower_back": false,
+      "increment_kg": 5.0,
+      "name_zh": "坐姿繩索划船",
+      "load_type": "cable"
+    },
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Chest-Supported Row Machine",
+      "code": "row_chest_sup_mc",
+      "primary_muscle": "back",
+      "secondary_muscles": [
+        "biceps",
+        "rear_delt"
+      ],
+      "is_compound": true,
+      "loads_lower_back": false,
+      "increment_kg": 5.0,
+      "name_zh": "胸靠式划船機",
+      "load_type": "machine"
+    },
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Seated DB Shoulder Press",
+      "code": "shoulder_press_db",
+      "primary_muscle": "front_delt",
+      "secondary_muscles": [
+        "triceps"
+      ],
+      "is_compound": true,
+      "loads_lower_back": false,
+      "increment_kg": 2.0,
+      "name_zh": "坐姿啞鈴肩推",
+      "load_type": "dumbbell_pair"
+    },
+    {
+      "cues": null,
+      "unilateral": false,
+      "name_en": "Machine Shoulder Press",
+      "code": "shoulder_press_mc",
+      "primary_muscle": "front_delt",
+      "secondary_muscles": [
+        "triceps"
+      ],
+      "is_compound": true,
+      "loads_lower_back": false,
+      "increment_kg": 5.0,
+      "name_zh": "器械肩推",
+      "load_type": "machine"
+    }
+  ]
+}
