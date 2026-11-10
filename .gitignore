@@ -6,3 +6,4 @@ my-data.json
 coverage/
 *.tsbuildinfo
 .playwright/
+fitness-csv-*.zip

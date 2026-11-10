@@ -1,3 +1,4 @@
+import { saveBodyMetric } from './body'
 import Dexie from 'dexie'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { FitnessDB, stores } from './index'
@@ -101,4 +102,16 @@ it('營養套用中途失敗時，新增目標、稽核、套用狀態全部回�
   try { await expect(applyRecommendations(id,database)).rejects.toThrow('合成交易失敗') }
   finally { database.rows('plan_changes').hook('creating').unsubscribe(fail) }
   expect(await readSnapshot(database)).toEqual(before)
+})
+
+it('修改身體數據使舊建議失效，重新結算後用新七日平均判斷熱量', async () => {
+  const {id,rec,food}=await prepareNutrition()
+  for(const row of food.bodyMetrics!.filter(r=>r.date>='2026-11-23')) await saveBodyMetric({date:row.date,weight_kg:61},database)
+  await expect(decideRecommendation(rec.id,'accepted',undefined,database)).rejects.toThrow('資料已變動')
+  await settleWeek(3,true,database,new Date('2026-11-29T13:00:00Z'))
+  const next=(await database.rows('recommendations').where('analysis_id').equals(id).toArray()).find(r=>r.target_type==='nutrition')!
+  expect(next.rule_id).toBe('N3')
+  const report=(await database.rows('weekly_analyses').get(id))!.metrics as {nutrition:{weeklyGains:number[]}}
+  expect(report.nutrition.weeklyGains).toEqual([.05,.95])
+  expect(await database.rows('nutrition_targets').count()).toBe(1)
 })

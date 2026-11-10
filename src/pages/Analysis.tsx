@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link, useParams } from 'react-router-dom'
 import { db } from '../db'
@@ -7,12 +8,13 @@ import { MAIN_LIFTS } from '../lib/rules/weekly'
 import { muscleLabels } from '../lib/rules/workout'
 import { SettlementPanel } from './SettlementPanel'
 
+const Charts = lazy(() => import('./Charts').then(module => ({ default: module.Charts })))
 const number = (value: number | null) => value == null ? '未填／無對照' : value.toLocaleString('zh-TW', { maximumFractionDigits: 2 })
 const percent = (value: number | null) => value == null ? '無對照' : `${value >= 0 ? '+' : ''}${(value * 100).toFixed(1)}%`
 const progressNames = { new: '首次／資料不足', up: '進步', flat: '持平', down: '退步' }
 export function AnalysisIndex() {
   const data = useLiveQuery(() => weeklyData())
-  return <><div className="page-title"><span className="eyebrow">固定規則，清楚看見原因</span><h1>每週分析</h1><p>先記錄訓練，再結算報告；所有課表建議都需要你確認。</p></div><SettlementPanel />
+  return <><div className="page-title"><span className="eyebrow">固定規則，清楚看見原因</span><h1>每週分析</h1><p>先記錄訓練，再結算報告；所有課表建議都需要你確認。</p></div><Link className="secondary" to="/body">記錄體重與腰圍 →</Link><Suspense fallback={<p role="status">載入圖表中…</p>}><Charts /></Suspense><SettlementPanel />
     {data?.analyses.length === 0 && <section className="card"><p>尚未結算任何一週。可從上方手動結算，課表不會自動變更。</p></section>}
     {data?.analyses.sort((a, b) => b.week_no - a.week_no).map(a => <Link className="card history-link" to={`/analysis/${a.week_no}`} key={a.id}><strong>第 {a.week_no} 週報告</strong><span className="badge">{a.applied_at ? '已產生課表' : data.recommendations.filter(r => r.analysis_id === a.id && r.status === 'pending').length ? '有待確認建議' : '已結算'}</span></Link>)}
     <Link to="/plan" className="text-link">查看 12 週計畫 →</Link>

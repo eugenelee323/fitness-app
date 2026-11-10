@@ -55,6 +55,23 @@ export function weightAverage(metrics: Row<'body_metrics'>[], end: string): numb
   const values = metrics.filter(m => m.date >= start && m.date <= end && m.weight_kg != null).map(m => m.weight_kg!)
   return values.length >= 4 ? values.reduce((sum, value) => sum + value, 0) / values.length : null
 }
+/** 同一結束日的連續 7 日視窗；不足四個日期不推算。 */
+export function bodySummary(metrics: Row<'body_metrics'>[], end: string) {
+  const weightAverages = [-14, -7, 0].map(offset => weightAverage(metrics, calendarDate(end, offset)))
+  const weeklyGains: number[] = []
+  if (weightAverages[2] != null && weightAverages[1] != null) {
+    if (weightAverages[0] != null) weeklyGains.push(Math.round((weightAverages[1] - weightAverages[0]) * 1e6) / 1e6)
+    weeklyGains.push(Math.round((weightAverages[2] - weightAverages[1]) * 1e6) / 1e6)
+  }
+  const count = metrics.filter(m => m.date >= calendarDate(end, -6) && m.date <= end && m.weight_kg != null).length
+  const latestWaist = (until: string) => metrics.filter(m => m.date >= calendarDate(until, -6) && m.date <= until && m.waist_cm != null).sort((a, b) => b.date.localeCompare(a.date))[0]?.waist_cm
+  const waist = latestWaist(end)
+  const oldWaist = latestWaist(calendarDate(end, -28))
+  const waistChange4w = waist != null && oldWaist != null ? Math.round((waist - oldWaist) * 1e6) / 1e6 : null
+  const change = weeklyGains.at(-1) ?? null
+  const status = change == null ? 'unknown' : change < .15 ? 'below' : change > .25 ? 'above' : 'target'
+  return { weightAverages, weeklyGains, waistChange4w, change, status, count }
+}
 export function adjustedNutrition(target: Row<'nutrition_targets'>, kcal: number) {
   if (!Number.isInteger(kcal) || kcal <= 0 || Math.abs(kcal - target.kcal) > 150) throw new Error('熱量一次只能調整最多 150 kcal。')
   const available = target.carbs_g + (kcal - target.kcal) / 4
@@ -71,17 +88,7 @@ export function nutritionWeek(input: NutritionInput, weekNo: number, today: stri
   const avgProtein = logged.length ? logged.reduce((sum, day) => sum + day.total.protein_g, 0) / logged.length : null
   const end = dates[6] < today ? dates[6] : today
   const target = targetForDate(input.nutritionTargets ?? [], end)
-  const body = input.bodyMetrics ?? []
-  const weightAverages = [weekNo - 2, weekNo - 1, weekNo].map(no => weightAverage(body, no === weekNo ? end : weekDates(no)[6]))
-  const gains: number[] = []
-  if (weightAverages[2] != null && weightAverages[1] != null) {
-    if (weightAverages[0] != null) gains.push(weightAverages[1] - weightAverages[0])
-    gains.push(weightAverages[2] - weightAverages[1])
-  }
-  const currentWaist = body.filter(m => m.date >= dates[0] && m.date <= end && m.waist_cm != null).sort((a, b) => b.date.localeCompare(a.date))[0]?.waist_cm
-  const oldDates = weekDates(weekNo - 4)
-  const oldWaist = body.filter(m => m.date >= oldDates[0] && m.date <= oldDates[6] && m.waist_cm != null).sort((a, b) => b.date.localeCompare(a.date))[0]?.waist_cm
-  const waistChange4w = currentWaist != null && oldWaist != null ? currentWaist - oldWaist : null
+  const { weightAverages, weeklyGains: gains, waistChange4w } = bodySummary(input.bodyMetrics ?? [], end)
   const history = (input.nutritionTargets ?? []).filter(t => t.effective_from <= end).sort((a, b) => a.effective_from.localeCompare(b.effective_from) || (a.created_at ?? '').localeCompare(b.created_at ?? ''))
   const adjustments = history.filter((t, index) => index > 0 && t.kcal !== history[index - 1].kcal)
   const lastAdjust = adjustments.at(-1)
