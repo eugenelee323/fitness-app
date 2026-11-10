@@ -20,5 +20,5 @@ export default defineConfig({
     },
     workbox: { globPatterns: ['**/*.{js,css,html,png,svg,woff2}'], navigateFallback: '/fitness-app/index.html', cleanupOutdatedCaches: true },
   })],
-  test: { environment: 'node', setupFiles: ['./src/test/setup.ts'], exclude: ['node_modules/**', 'dist/**', 'e2e/**'] },
+  test: { testTimeout: 15000, coverage: { provider: 'v8', include: ['src/lib/rules/**/*.ts'], exclude: ['src/lib/rules/**/*.test.ts'], reporter: ['text', 'json-summary', 'html'], thresholds: { perFile: true, lines: 90, statements: 90, functions: 90, branches: 90 } }, environment: 'node', setupFiles: ['./src/test/setup.ts'], exclude: ['node_modules/**', 'dist/**', 'e2e/**'] },
 })

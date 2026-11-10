@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie'
 import { schemas, type Row, type TableName } from './schema'
+import { withPlanBaselines } from '../lib/rules/seed'
 
 export const stores: Record<TableName, string> = {
   user_profiles: 'id', nutrition_targets: 'id, effective_from',
@@ -29,6 +30,13 @@ export class FitnessDB extends Dexie {
     // 版本 2 新增週次排序索引；Dexie 原地建立索引，不刪除既有紀錄。
     this.version(2).stores({ program_weeks: 'id, program_id, week_no, &[program_id+week_no]' })
     this.version(3).stores({ workout_drafts: stores.workout_drafts, app_meta: stores.app_meta, import_links: stores.import_links })
+    this.version(4).stores({}).upgrade(async tx => {
+      const weeks = await tx.table('program_weeks').toArray() as Row<'program_weeks'>[]
+      const plans = await tx.table('planned_exercises').toArray() as Row<'planned_exercises'>[]
+      const normalized = withPlanBaselines(weeks, plans)
+      if (normalized.weeks.length) await tx.table('program_weeks').bulkPut(normalized.weeks)
+      if (normalized.plans.length) await tx.table('planned_exercises').bulkPut(normalized.plans)
+    })
     for (const name of Object.keys(stores) as TableName[]) {
       this.table(name).hook('creating', (_key, obj: unknown) => { schemas[name].parse(obj) })
       this.table(name).hook('updating', (changes, _key, obj: object) => {

@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { db, type FitnessDB } from '../../db'
-import { schemas, tableNames, type TableName } from '../../db/schema'
+import { schemas, tableNames, type TableName, type Row } from '../../db/schema'
+import { withPlanBaselines } from '../rules/seed'
 import { RULES_VERSION } from '../rules'
 import { taipeiDate } from '../time'
 
@@ -61,6 +62,9 @@ export function prepareBackup(content: string) {
   if (Object.keys(input).some(n => !tableNames.includes(n as TableName)) || baseTables.some(n => !Array.isArray(input[n]))) throw new Error('完整備份缺少必要資料表或含未知資料表。')
   const tables = {} as Snapshot
   for (const name of tableNames) tables[name] = (input[name] ?? []).map(row => schemas[name].parse(row))
+  const normalized = withPlanBaselines(tables.program_weeks as Row<'program_weeks'>[], tables.planned_exercises as Row<'planned_exercises'>[])
+  tables.program_weeks = normalized.weeks
+  tables.planned_exercises = normalized.plans
   validateSnapshot(tables)
   return { ...parsed.data, tables, counts: tableNames.map(name => ({ name, count: tables[name].length })) }
 }

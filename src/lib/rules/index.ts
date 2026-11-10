@@ -82,12 +82,12 @@ export function muscleSetDelta(m: { status: 'new' | 'up' | 'flat' | 'down'; flat
 // ---- D：減量 ----
 export function deloadDecision(w: { mainLiftsDown2Weeks: number; fatigueHigh2Weeks: boolean; avgSleep: number;
   anyDown: boolean; scheduledDeload: boolean; allMainUp: boolean; avgFatigue: number; anyPain: boolean;
-  weeksSinceDeload: number }): { deload: boolean; ruleId: string } {
+  weeksSinceDeload: number; postponedWeeks?: number }): { deload: boolean; ruleId: string } {
   if (w.mainLiftsDown2Weeks >= 2) return { deload: true, ruleId: 'D1' };
   if (w.fatigueHigh2Weeks) return { deload: true, ruleId: 'D2' };
   if (w.avgSleep < 6.5 && w.anyDown) return { deload: true, ruleId: 'D3' };
   if (w.scheduledDeload) {
-    const postpone = w.allMainUp && w.avgFatigue <= 5 && !w.anyPain && w.weeksSinceDeload < 5; // 最多延 2 週
+    const postpone = w.allMainUp && w.avgFatigue <= 5 && !w.anyPain && (w.postponedWeeks == null ? w.weeksSinceDeload < 5 : w.postponedWeeks < 2); // 最多延 2 週
     return { deload: !postpone, ruleId: postpone ? 'D4-postpone' : 'D4' };
   }
   return { deload: false, ruleId: 'D0' };

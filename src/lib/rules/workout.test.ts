@@ -40,6 +40,7 @@ describe('訓練彙總與預填', () => {
     expect(weeklyCompletion([p], [left], [session]).ratio).toBe(.25)
     expect(weeklyCompletion([p], [left, { ...left, id: id(), side: 'right' }, left], [session]).ratio).toBe(.5)
     expect(weeklyCompletion([], [], []).ratio).toBe(0)
+    expect(weeklyCompletion([{ ...p, is_paused: true }], [left], [session]).target).toBe(0)
   })
   it('預填目標優先，上次重量次之，首次器械必須試重', () => {
     const ex = makeExercise('machine')

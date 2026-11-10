@@ -42,6 +42,7 @@ export function weeklyCompletion(plans: Row<'planned_exercises'>[], sets: Row<'w
   let done = 0
   let target = 0
   for (const plan of plans) {
+    if (plan.is_paused) continue
     target += plan.sets
     const rows = sets.filter(s => ids.has(s.session_id) && s.planned_exercise_id === plan.id && s.set_no <= plan.sets)
     const numbers = new Set(rows.map(s => s.set_no))
@@ -53,9 +54,9 @@ export function weeklyCompletion(plans: Row<'planned_exercises'>[], sets: Row<'w
   return { done, target, ratio: target ? Math.min(done / target, 1) : 0 }
 }
 
-export function entryTarget(plan: Pick<Row<'planned_exercises'>, 'target_weight_kg' | 'rep_min' | 'target_rir'>, ex: Pick<Row<'exercises'>, 'load_type'>, previous?: Row<'workout_sets'>) {
+export function entryTarget(plan: Pick<Row<'planned_exercises'>, 'target_weight_kg' | 'rep_min' | 'target_rir' | 'target_reps'>, ex: Pick<Row<'exercises'>, 'load_type'>, previous?: Row<'workout_sets'>) {
   const weight = plan.target_weight_kg ?? previous?.weight_kg ?? (ex.load_type === 'bodyweight' ? 0 : null)
-  return { weight: weight == null ? '' : String(weight), reps: String(plan.rep_min), rir: plan.target_rir }
+  return { weight: weight == null ? '' : String(weight), reps: String(plan.target_reps ?? plan.rep_min), rir: plan.target_rir }
 }
 
 export function currentWeek(startDate: string, today: string): number {

@@ -19,7 +19,7 @@ export async function startWorkout(weekId: string, day: 'push' | 'pull', databas
   return database.transaction('rw', database.tables, async () => {
     const current = await database.rows('workout_drafts').toCollection().first()
     if (current) return current.id
-    const plans = (await database.rows('planned_exercises').where('program_week_id').equals(weekId).toArray()).filter(p => p.day_type === day).sort((a, b) => a.order_no - b.order_no)
+    const plans = (await database.rows('planned_exercises').where('program_week_id').equals(weekId).toArray()).filter(p => p.day_type === day && !p.is_paused).sort((a, b) => a.order_no - b.order_no)
     if (!plans.length) throw new Error('這個週次沒有可用課表。')
     const exercises = await database.rows('exercises').toArray()
     const sessions = (await database.rows('workout_sessions').toArray()).filter(s => s.date <= date).sort((a, b) => b.date.localeCompare(a.date) || (b.started_at ?? '').localeCompare(a.started_at ?? ''))
@@ -107,7 +107,7 @@ export async function finishWorkout(id: string, database: FitnessDB = db) {
     const bodyweight = draft.bodyweight.trim() ? numericInput(draft.bodyweight, '體重') : null
     if (needsBodyweight && !bodyweight) throw new Error('徒手或輔助動作需要本次體重才能計算容量，請填寫體重。')
     const next = schemas.workout_sessions.parse({ ...session, fatigue: numericInput(draft.fatigue, '疲勞（1–10）'), sleep_h: numericInput(draft.sleep_h, '睡眠時數'), bodyweight_kg: bodyweight, completed: draft.items.every(i => i.entries.every(e => e.done)) })
-    const pains = draft.pains.map(p => schemas.pain_reports.parse({ id: p.id, session_id: session.id, body_part: p.body_part.trim(), score: numericInput(p.score, '疼痛分數'), exercise_id: p.exercise_id }))
+    const pains = draft.pains.map(p => schemas.pain_reports.parse({ id: p.id, session_id: session.id, body_part: p.body_part.trim(), score: numericInput(p.score, '疼痛分數'), sharp: p.sharp, exercise_id: p.exercise_id }))
     await database.rows('workout_sessions').put(next)
     if (pains.length) await database.rows('pain_reports').bulkAdd(pains)
     await database.rows('workout_drafts').delete(draft.id)
