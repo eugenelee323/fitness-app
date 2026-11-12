@@ -116,6 +116,12 @@ export async function decideRecommendation(id: string, status: 'accepted' | 'rej
     await database.rows('recommendations').put(schemas.recommendations.parse({ ...rec, status, after: jsonValue(after), reason, decided_at: new Date().toISOString() }))
   })
 }
+export async function acceptPendingRecommendations(analysisId: string, database: FitnessDB = db) {
+  await database.transaction('rw', database.tables, async () => {
+    const pending = await database.rows('recommendations').where('analysis_id').equals(analysisId).filter(rec => rec.status === 'pending').toArray()
+    for (const rec of pending) await decideRecommendation(rec.id, 'accepted', undefined, database)
+  })
+}
 export async function applyRecommendations(id: string, database: FitnessDB = db, now = new Date()) {
   await database.transaction('rw', database.tables, async () => {
     const analysis = await database.rows('weekly_analyses').get(id)

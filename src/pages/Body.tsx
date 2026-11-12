@@ -1,8 +1,11 @@
+import { useRef } from 'react'
+import { compressPhoto } from '../lib/photos'
+import { saveWeeklyCheckin } from '../db/checkin'
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link } from 'react-router-dom'
 import { db } from '../db'
-import { saveBodyMetric, deleteBodyMetric } from '../db/body'
+import { deleteBodyMetric } from '../db/body'
 import type { Row } from '../db/schema'
 import { bodySummary, isMeasurementSunday } from '../lib/rules/nutrition'
 import { useClock } from '../hooks/useClock'
@@ -18,14 +21,17 @@ function BodySummary({ rows, date }: { rows: Row<'body_metrics'>[]; date: string
 function BodyForm({ date, row, quick=false }: { date:string; row?:Row<'body_metrics'>; quick?:boolean }) {
   const [weight,setWeight]=useState(row?.weight_kg == null ? '' : String(row.weight_kg))
   const [waist,setWaist]=useState(row?.waist_cm == null ? '' : String(row.waist_cm))
+  const [photo,setPhoto]=useState<Blob|null|undefined>(undefined)
+  const picker=useRef<HTMLInputElement>(null)
+  const existingPhoto=useLiveQuery(()=>db.rows('body_photos').get(date),[date])
   const [busy,setBusy]=useState(false)
   const [error,setError]=useState('')
   const [message,setMessage]=useState('')
   return <form onSubmit={event=>{event.preventDefault();setBusy(true);setError('');setMessage('');void (async()=>{
-    try { if(quick && !weight.trim())throw new Error('請填寫今日體重。');await saveBodyMetric({date,weight_kg:weight.trim()?Number(weight):null,...(quick?{}:{waist_cm:waist.trim()?Number(waist):null})},db,row);setMessage('身體數據已儲存。') }
+    try { if(quick && !weight.trim())throw new Error('請填寫今日體重。');await saveWeeklyCheckin({date,weight_kg:weight.trim()?Number(weight):null,...(quick?{}:{waist_cm:waist.trim()?Number(waist):null})},photo);setMessage('身體數據已儲存。') }
     catch(err){setError(err instanceof Error && err.name!=='ZodError'?err.message:'請輸入大於 0 的有效數值。')}finally{setBusy(false)}
   })()}}><fieldset disabled={busy}><div className="form-grid"><label>{quick?'今日體重':'體重'}（kg）<input type="number" inputMode="decimal" min="0.01" step="any" value={weight} onChange={e=>setWeight(e.target.value)} /></label>
-    {!quick && <label>腰圍（cm，每週選填）<input type="number" inputMode="decimal" min="0.01" step="any" value={waist} onChange={e=>setWaist(e.target.value)} /></label>}</div><button className="primary" type="submit">{busy?'儲存中…':quick?'儲存今日體重':row?'更新身體數據':'儲存身體數據'}</button></fieldset>
+    {!quick && <label>腰圍（cm，每週選填）<input type="number" inputMode="decimal" min="0.01" step="any" value={waist} onChange={e=>setWaist(e.target.value)} /></label>}</div><h3>體態照（可略過）</h3><input ref={picker} className="file-input" type="file" accept="image/*" capture="environment" aria-label="選擇本週體態照" onChange={async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;setBusy(true);try{setPhoto(await compressPhoto(file))}catch{setError('照片無法處理，請重試。')}finally{setBusy(false)}}}/><button type="button" className="secondary" onClick={()=>picker.current?.click()}>拍體態照／選照片</button><p className="muted">{photo?'已選擇新照片，按儲存後寫入':photo===null?'儲存時刪除體態照':existingPhoto?'此日期已有體態照，可保留或更換':'未設定照片；可略過'} · 不會包含在複製週報中。</p>{(photo||existingPhoto)&&<button type="button" className="secondary" onClick={()=>setPhoto(null)}>移除體態照（儲存後生效）</button>}<button className="primary" type="submit">{busy?'儲存中…':quick?'儲存今日體重':'儲存本週記錄（空白可略過）'}</button></fieldset>
     {message && <p role="status" className="success">{message}</p>}{error && <p role="alert" className="error">{error}</p>}</form>
 }
 export function QuickBody() {

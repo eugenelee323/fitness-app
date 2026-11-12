@@ -37,3 +37,13 @@ export async function addFavorite(id: string, date: string, database: FitnessDB 
   if (!favorite) throw new Error('找不到常用餐點。')
   return saveMeal({ date, meal_type: favorite.meal_type, items: favorite.items, entry_source: 'favorite' }, undefined, database)
 }
+/** 所有餐別一起交易，任何一項錯誤就整批不寫入。 */
+export async function saveMealsBatch(raw:MealInput[],database:FitnessDB=db){
+  const inputs=raw.map(value=>mealInputSchema.parse(value))
+  if(!inputs.length)throw new Error('沒有可儲存的餐點。')
+  return database.transaction('rw',database.tables,async()=>{
+    const ids:string[]=[]
+    for(const input of inputs)ids.push(await saveMeal({...input,entry_source:'paste',items:input.items.map(item=>({...item,is_estimate:true}))},undefined,database))
+    return ids
+  })
+}

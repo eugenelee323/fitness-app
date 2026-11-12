@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { FitnessDB, stores } from '../../db'
 import { startWorkout, deleteWorkout } from '../../db/workouts'
 import { fixtureId, logWeek, weeklyFixture } from '../../test/weeklyFixture'
-import { applyRecommendations, autoSettle, decideRecommendation, loadWeeklyInput, settleWeek, sourceFingerprint } from './index'
+import { acceptPendingRecommendations, applyRecommendations, autoSettle, decideRecommendation, loadWeeklyInput, settleWeek, sourceFingerprint } from './index'
 import { settlementDeadline, type WeeklyInput } from '../rules/weekly'
 import { readSnapshot, createBackup, prepareBackup, restoreBackup } from '../backup'
 let database: FitnessDB
@@ -19,6 +19,7 @@ async function persist(data: WeeklyInput) {
   if (data.pains.length) await database.rows('pain_reports').bulkPut(data.pains)
 }
 async function decideAll(id: string, status: 'accepted' | 'rejected' = 'accepted') {
+  if (status === 'accepted') return acceptPendingRecommendations(id, database)
   for (const rec of await database.rows('recommendations').where('analysis_id').equals(id).toArray()) if (rec.status === 'pending') await decideRecommendation(rec.id, status, undefined, database)
 }
 beforeEach(async () => { database = new FitnessDB(`weekly-${fixtureId()}`); input = weeklyFixture(); await persist(input) })

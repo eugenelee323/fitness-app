@@ -35,3 +35,14 @@ export function parseMealText(raw: string) {
   }
   return { header, headerError: header ? null : '第一行請使用「#餐點 YYYY-MM-DD 早餐／午餐／晚餐／點心」並填有效日期。', lines, valid: !!header && lines.length > 0 && lines.every(line => !!line.item) }
 }
+export function parseMealsText(raw:string){
+  const rows=raw.replace(/^\uFEFF/,'').split(/\r?\n/)
+  const starts=rows.flatMap((line,index)=>/^#\s*餐點/.test(line.normalize('NFKC').trim())?[index]:[])
+  const first=rows.findIndex(line=>line.trim())
+  if(!starts.length || first>=0&&first<starts[0])starts.unshift(Math.max(0,first))
+  const blocks=starts.map((start,index)=>{
+    const result=parseMealText(rows.slice(start,starts[index+1]??rows.length).join('\n'))
+    return {...result,startLine:start+1,lines:result.lines.map(line=>({...line,lineNumber:line.lineNumber+start}))}
+  })
+  return {blocks,valid:blocks.length>0&&blocks.every(block=>block.valid)}
+}

@@ -36,6 +36,9 @@ export const templates = {
   P1: '今日蛋白質還差 {remaining} g，可補充乳清、茶葉蛋或優格。',
   'EX-pull': '補量日與已記錄拉日可能間隔少於 48 小時，請評估背部與手臂恢復；仍可選擇繼續。',
   'EX-push': '補量日排在推日前一天，可能影響胸、肩、三頭恢復；仍可選擇繼續。',
+  BACK0:'腰部 {score} 分，今天依原課表訓練。',
+  BACK1:'腰部 {score} 分，保留原動作；今天重量降 10%，依器材級距向下取整至 {after} kg。',
+  BACK3:'腰部 {score} 分，今天改為俯臥腿彎舉，沿用該動作最近重量；沒有紀錄時試重。已完成組不變，可手動改回。',
   USER_EDIT: '使用者修改：{name} 的{field}由 {before} 調整為 {after}。',
 } as const
 export type RuleId = keyof typeof templates

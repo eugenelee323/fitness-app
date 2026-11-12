@@ -71,6 +71,7 @@ export async function completeEntry(draftId: string, itemId: string, entryId: st
     if (entry.done) return
     const row = schemas.workout_sets.parse({ id: entry.id, session_id: draft.session_id, planned_exercise_id: item.planned_exercise_id, exercise_id: item.exercise_id, set_no: entry.set_no, side: entry.side, weight_kg: numericInput(values.weight, '重量'), reps: numericInput(values.reps, '次數'), rir: values.rir })
     Object.assign(entry, values, { done: true })
+    draft.undo={entry_id:entry.id,expires_at:now+3000,previous_timer:structuredClone(draft.timer)}
     draft.timer = { ends_at: now + item.rest_sec * 1000, remaining_ms: item.rest_sec * 1000, paused: false }
     draft.updated_at = new Date(now).toISOString()
     await database.rows('workout_sets').put(row)
@@ -101,6 +102,8 @@ export async function replaceExercise(draftId: string, itemId: string, alternati
     const originalExercise = await database.rows('exercises').get(item.exercise_id)
     if (!pendingNumbers.length) throw new Error('這個動作已全部完成。')
     const next = { ...item, id: crypto.randomUUID(), exercise_id: alternative.id, target_weight_kg: null, entries: pendingNumbers.flatMap(set_no => (alternative.unilateral ? originalExercise?.unilateral ? pending.filter(e => e.set_no === set_no).map(e => e.side) : ['left', 'right'] as const : ['both'] as const).map(side => ({ id: crypto.randomUUID(), set_no, side, ...entryTarget({ ...item, target_weight_kg: null }, alternative), done: false }))) }
+    delete next.back_original
+    delete next.back_reason
     // 已完成的原動作仍保留，替換只影響本次尚未完成的組。
     draft.updated_at = new Date().toISOString()
     draft.items = draft.items.flatMap(i => i.id !== item.id ? [i] : done.length ? [{ ...i, entries: done }, next] : [next])
@@ -120,9 +123,9 @@ export async function finishWorkout(id: string, database: FitnessDB = db) {
     const bodyweight = draft.bodyweight.trim() ? numericInput(draft.bodyweight, '體重') : null
     if (needsBodyweight && !bodyweight) throw new Error('徒手或輔助動作需要本次體重才能計算容量，請填寫體重。')
     const next = schemas.workout_sessions.parse({ ...session, fatigue: numericInput(draft.fatigue, '疲勞（1–10）'), sleep_h: numericInput(draft.sleep_h, '睡眠時數'), bodyweight_kg: bodyweight, completed: draft.items.every(i => i.entries.every(e => e.done)) })
-    const pains = draft.pains.map(p => schemas.pain_reports.parse({ id: p.id, session_id: session.id, body_part: p.body_part.trim(), score: numericInput(p.score, '疼痛分數'), sharp: p.sharp, exercise_id: p.exercise_id }))
+    const pains = draft.pains.map(p => schemas.pain_reports.parse({ id: p.id, session_id: session.id, body_part: p.body_part.trim(), score: numericInput(p.score, '疼痛分數'), sharp: p.sharp, phase: 'post', exercise_id: p.exercise_id }))
     await database.rows('workout_sessions').put(next)
-    if (pains.length) await database.rows('pain_reports').bulkAdd(pains)
+    if (pains.length) await database.rows('pain_reports').bulkPut(pains)
     await database.rows('workout_drafts').delete(draft.id)
   })
 }

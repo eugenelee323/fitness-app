@@ -1,3 +1,4 @@
+import { initTheme,initPrimaryActions } from './lib/theme'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { HashRouter } from 'react-router-dom'
@@ -5,6 +6,8 @@ import { registerSW } from 'virtual:pwa-register'
 import App from './App'
 import './style.css'
 
+initTheme()
+initPrimaryActions()
 const updateSW = registerSW({
   onNeedRefresh() { window.dispatchEvent(new Event('app-update-ready')) },
   onOfflineReady() { window.dispatchEvent(new Event('app-offline-ready')) },

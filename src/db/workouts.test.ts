@@ -151,7 +151,7 @@ describe('合併匯入與完整備份', () => {
     await deleteWorkout(id, database)
     await restoreBackup(parsed, database)
     expect(await readSnapshot(database)).toEqual(snapshot)
-    expect((await database.rows('app_meta').get('last_backup_at'))?.value).toBe('2026-01-01T18:00:00.000Z')
+    expect((await database.rows('app_meta').get('last_backup_at'))?.value).toBeUndefined()
   })
   it('拒絕缺表、重複主鍵、無效外鍵、未知版本且原資料不變', async () => {
     const backup = await createBackup(database)

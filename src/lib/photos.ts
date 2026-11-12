@@ -1,5 +1,6 @@
 import { z } from 'zod'
 export const backupPhotoSchema=z.object({exercise_code:z.string().min(1),blob:z.string().max(6*1024*1024).regex(/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/),updated_at:z.iso.datetime({offset:true})}).strict()
+export const backupBodyPhotoSchema=backupPhotoSchema.omit({exercise_code:true}).extend({date:z.iso.date()})
 export async function photoDataUrl(blob:Blob):Promise<string> {
   const bytes=new Uint8Array(await blob.arrayBuffer())
   let binary=''
@@ -22,7 +23,7 @@ export async function compressPhoto(file:File):Promise<Blob> {
     const scale=Math.min(1,800/Math.max(img.naturalWidth,img.naturalHeight))
     const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));canvas.height=Math.max(1,Math.round(img.naturalHeight*scale))
     const ctx=canvas.getContext('2d');if(!ctx)throw new Error('此瀏覽器無法處理照片。')
-    ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height)
+    ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--photo-paper').trim();ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height)
     return await new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('照片壓縮失敗。')),'image/jpeg',.82))
   } finally {URL.revokeObjectURL(url)}
 }

@@ -6,6 +6,7 @@ import { targetForDate } from './lib/rules/nutrition'
 import { useClock } from './hooks/useClock'
 import { taipeiDate } from './lib/time'
 import { dayLabels } from './lib/rules/extra'
+import { ThemeSettings } from './pages/ThemeSettings'
 import { ExercisePhoto } from './pages/ExercisePhoto'
 import { Body } from './pages/Body'
 import { Nutrition } from './pages/Nutrition'
@@ -85,7 +86,7 @@ function Settings({ persisted }: { persisted: boolean | null }) {
   const data = useLiveQuery(async () => ({ profile: await db.rows('user_profiles').toCollection().first(), targets: targetForDate(await db.rows('nutrition_targets').toArray(), today), metrics: await db.rows('body_metrics').orderBy('date').last(), sessions: await db.rows('workout_sessions').count(), sets: await db.rows('workout_sets').count() }), [today])
   const profile = data?.profile
   return <><PageTitle kicker="你的裝置，你的資料" title="設定" description="管理個人初始資料與裝置儲存。" />
-    <SettlementPanel /><BackupPanel /><ImportPanel onDone={() => {}} />
+    <ThemeSettings /><BackupPanel /><SettlementPanel /><ImportPanel onDone={() => {}} />
     <section className="card"><h2>目前個人資料</h2>{profile ? <dl className="profile-grid"><div><dt>性別</dt><dd>{profile.sex === 'male' ? '男' : profile.sex === 'female' ? '女' : '未填寫'}</dd></div><div><dt>生日</dt><dd>{profile.birth_date ?? '未填寫'}</dd></div><div><dt>身高</dt><dd>{profile.height_cm == null ? '未填寫' : `${profile.height_cm} cm`}</dd></div><div><dt>目標</dt><dd>{profile.goal === 'hypertrophy' ? '增肌' : profile.goal}</dd></div><div><dt>活動量</dt><dd>{{ sedentary: '久坐', light: '輕度', moderate: '中度' }[profile.activity_level]}</dd></div><div><dt>限制</dt><dd>{profile.limitations.map(v => v === 'lower_back' ? '腰部限制' : v).join('、') || '無'}</dd></div></dl> : <p className="muted">尚未匯入個人資料。</p>}
       {data?.targets && <p>營養目標：{data.targets.kcal} kcal · 蛋白質 {data.targets.protein_g} g · 碳水 {data.targets.carbs_g} g · 脂肪 {data.targets.fat_g} g</p>}
       {data?.metrics && <p>最近身體數據（{data.metrics.date}）：體重 {data.metrics.weight_kg ?? '—'} kg · 腰圍 {data.metrics.waist_cm ?? '—'} cm</p>}

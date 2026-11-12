@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import type { Row } from '../db/schema'
-import { mealData, saveMeal, deleteMeal, saveFavorite, addFavorite, mealInputSchema, type MealInput } from '../db/meals'
-import { parseMealText, mealLabels, type MealValue, type MealType } from '../lib/paste'
+import { mealData, saveMealsBatch, saveMeal, deleteMeal, saveFavorite, addFavorite, mealInputSchema, type MealInput } from '../db/meals'
+import { parseMealsText, mealLabels, type MealValue, type MealType } from '../lib/paste'
 import { nutritionDay, sumNutrients, scaleNutrients, NUTRIENT_KEYS, nutrientLabels } from '../lib/rules/nutrition'
 import { useClock } from '../hooks/useClock'
 import { taipeiDate } from '../lib/time'
@@ -62,18 +62,13 @@ function MealForm({ initial, existing, onClose, run }: { initial: MealInput; exi
   </section>
 }
 
-function PastePanel({ onImport, onClose }: { onImport: (input: MealInput) => void; onClose: () => void }) {
-  const [raw, setRaw] = useState('')
-  const parsed = parseMealText(raw)
-  function fix(lineNumber: number, value: string) { const lines = raw.split(/\r?\n/); lines[lineNumber - 1] = value; setRaw(lines.join('\n')) }
-  return <section className="card"><h2>貼上 Claude 估算</h2><p className="muted">把 Claude 的固定格式回覆整段貼入。飲料 1 ml 以 1 g 記錄。</p>
-    <label>餐點文字<textarea rows={7} value={raw} onChange={e => setRaw(e.target.value)} placeholder={'#餐點 2026-11-11 午餐\n雞腿便當 | 550 g | 820 kcal | P 38 | C 95 | F 30\n無糖豆漿 | 450 ml | 150 kcal | P 15 | C 8 | F 7'} /></label>
-    {raw && parsed.headerError && <p className="error" role="alert">{parsed.headerError}請在上方修正。</p>}
-    {parsed.header && <p>{parsed.header.date} · {mealLabels[parsed.header.meal_type]} · {parsed.lines.filter(line => line.item).length} 項可解析</p>}
-    {parsed.lines.map(line => <div key={line.lineNumber} className={line.error ? 'paste-line invalid-line' : 'paste-line'}>{line.error
-      ? <label>第 {line.lineNumber} 行：{line.error}<input aria-invalid="true" value={line.text} onChange={e => fix(line.lineNumber, e.target.value)} /></label>
-      : <p>✓ {line.item?.name} · {line.item?.grams} g · {line.item?.kcal} kcal <span className="badge">估</span></p>}</div>)}
-    <div className="button-row"><button className="primary" disabled={!parsed.valid} onClick={() => parsed.header && onImport({ ...parsed.header, items: parsed.lines.flatMap(line => line.item ? [line.item] : []), entry_source: 'paste' })}>核對各項目</button><button className="secondary" onClick={onClose}>取消</button></div>
+function PastePanel({raw,setRaw,onClose,onSaved,run,manual}:{raw:string;setRaw:(text:string)=>void;onClose:()=>void;onSaved:(date:string)=>void;run:Run;manual:boolean}){
+  const [editing,setEditing]=useState(manual),[busy,setBusy]=useState(false)
+  const parsed=parseMealsText(raw)
+  function fix(lineNumber:number,value:string){const rows=raw.split(/\r?\n/);rows[lineNumber-1]=value;setRaw(rows.join('\n'))}
+  return <section className="card"><h2>一次貼上多餐</h2><p className="muted">每餐以「#餐點 日期 餐別」開頭，可含多日資料。</p>{(editing||!raw||!parsed.valid)&&<label>餐點文字<textarea aria-label="多餐估算文字" disabled={busy} rows={8} value={raw} onChange={e=>setRaw(e.target.value)}/></label>}<button className="secondary" onClick={()=>setEditing(!editing)}>編輯貼上文字</button>
+    {raw&&parsed.blocks.map(block=><article className="paste-block" key={block.startLine}>{block.header?<h3>{block.header.date} · {mealLabels[block.header.meal_type]}</h3>:<p className="error">第 {block.startLine} 行：{block.headerError}</p>}{block.lines.map(line=><div key={line.lineNumber} className={line.error?'paste-line invalid-line':'paste-line'}>{line.error?<label>第 {line.lineNumber} 行：{line.error}<input disabled={busy} aria-invalid="true" value={line.text} onChange={e=>fix(line.lineNumber,e.target.value)}/></label>:<p>{line.item?.name} · {line.item?.grams} g · {line.item?.kcal} kcal <span className="badge">估</span></p>}</div>)}<p>合計 {formatN(sumNutrients(block.lines.flatMap(line=>line.item?[line.item]:[])).kcal)} kcal</p></article>)}
+    <button className="primary" data-primary-priority="10" disabled={!parsed.valid||busy} onClick={()=>{setBusy(true);void run(async()=>{await saveMealsBatch(parsed.blocks.map(block=>({...block.header!,items:block.lines.map(line=>line.item!),entry_source:'paste'})));onSaved(parsed.blocks[0].header!.date)}).finally(()=>setBusy(false))}}>{busy?'儲存中…':'一鍵全部確認'}</button><button className="secondary" disabled={busy} onClick={onClose}>取消</button>
   </section>
 }
 
@@ -82,6 +77,8 @@ export function Nutrition() {
   const [date, setDate] = useState(() => taipeiDate(new Date(now)))
   const [form, setForm] = useState<{ input: MealInput; existing?: Row<'meals'> } | null>(null)
   const [paste, setPaste] = useState(false)
+  const [pasteText,setPasteText]=useState('')
+  const [pasteManual,setPasteManual]=useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
@@ -97,9 +94,9 @@ export function Nutrition() {
   return <><div className="page-title"><span className="eyebrow">每餐累積，吃得有方向</span><h1>飲食紀錄</h1>
     <label>查看日期<input aria-label="查看日期" type="date" value={date} onChange={e => { if (e.target.value) setDate(e.target.value) }} /></label><button className="secondary" onClick={() => setDate(taipeiDate(new Date(now)))}>回到今天</button></div>
     <NutritionProgress day={nutritionDay(data, date)} now={now} />
-    <div className="button-row"><button className="primary" onClick={() => { setPaste(false); setForm({ input: { date, meal_type: 'lunch', items: [], entry_source: 'manual' } }) }}>手動輸入一餐</button><button className="secondary" onClick={() => { setForm(null); setPaste(!paste) }}>貼上 Claude 估算</button></div>
+    <div className="button-row"><button className="secondary" onClick={() => { setPaste(false); setForm({ input: { date, meal_type: 'lunch', items: [], entry_source: 'manual' } }) }}>手動輸入一餐</button><button className="primary" onClick={async()=>{setForm(null);setPaste(true);try{if(!navigator.clipboard?.readText)throw new Error();setPasteText(await navigator.clipboard.readText());setPasteManual(false)}catch{setPasteManual(true)}}}>貼上 Claude 估算</button></div>
     {error && <p className="error" role="alert">{error}</p>}{message && <p role="status" className="success">{message}</p>}
-    {paste && <PastePanel onClose={() => setPaste(false)} onImport={input => { setDate(input.date); setForm({ input }); setPaste(false) }} />}
+    {paste && <PastePanel raw={pasteText} setRaw={setPasteText} manual={pasteManual} onClose={()=>setPaste(false)} run={run} onSaved={savedDate=>{setDate(savedDate);setPaste(false);setPasteText('')}} />}
     {form && <MealForm key={form.existing?.id ?? `${form.input.entry_source}-${form.input.date}`} initial={form.input} existing={form.existing} onClose={savedDate => { setForm(null); if (savedDate) setDate(savedDate) }} run={run} />}
     <fieldset disabled={busy}>
       <section className="card"><h2>常用餐點</h2><p className="muted">一鍵加入 {date}，餐別沿用儲存時設定；加入後可編輯。</p>

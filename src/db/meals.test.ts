@@ -48,7 +48,7 @@ describe('餐點儲存、常用與備份',()=>{
     const name=database.name; database.close()
     const old=new Dexie(name); const {favorite_meals:ignored,exercise_photos:ignoredPhotos,...oldStores}=stores; void [ignored,ignoredPhotos]
     old.version(4).stores(oldStores); await old.table('meals').add(schemas.meals.parse({id:fixtureId(),date:meal.date,meal_type:'lunch'})); old.close()
-    database=new FitnessDB(name); await database.open(); expect(database.verno).toBe(6); expect(await database.rows('meals').count()).toBe(1); expect(await database.rows('favorite_meals').count()).toBe(0)
+    database=new FitnessDB(name); await database.open(); expect(database.verno).toBe(7); expect(await database.rows('meals').count()).toBe(1); expect(await database.rows('favorite_meals').count()).toBe(0)
   })
 })
 async function prepareNutrition() {

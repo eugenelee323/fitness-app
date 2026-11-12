@@ -1,8 +1,9 @@
+import { BackupButton } from './BackupButton'
 import { useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { createCsvZip } from '../lib/csv'
 import { db } from '../db'
-import { createBackup, prepareBackup, restoreBackup, tableLabels, type BackupPreview } from '../lib/backup'
+import { prepareBackup, restoreBackup, tableLabels, type BackupPreview } from '../lib/backup'
 
 export function BackupPanel() {
   const [preview, setPreview] = useState<BackupPreview | null>(null)
@@ -14,16 +15,7 @@ export function BackupPanel() {
   const input = useRef<HTMLInputElement>(null)
   const last = useLiveQuery(() => db.rows('app_meta').get('last_backup_at'))
   return <section className="card"><h2>完整備份與還原</h2><p>包含所有紀錄、課表、進行中訓練與匯入對應，可在另一個裝置還原。</p><p className="muted">最近匯出：{typeof last?.value === 'string' ? new Date(last.value).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }) : '尚未備份'}</p>
-    <label className="confirm-label"><input type="checkbox" checked={includePhotos} disabled={busy} onChange={e=>setIncludePhotos(e.target.checked)} />包含動作照片（預設包含；以 base64 儲存）</label><p className="muted">未含照片的備份仍可還原；整庫取代時，本機原照片會依備份內容取代或清除。</p><div className="button-row"><button className="primary" disabled={busy} onClick={async () => {
-      setBusy(true); setError(''); setMessage('')
-      try {
-        const backup = await createBackup(db,new Date(),{includePhotos})
-        const url = URL.createObjectURL(new Blob([backup.content], { type: 'application/json' }))
-        const link = document.createElement('a'); link.href = url; link.download = backup.filename; document.body.append(link); link.click(); link.remove()
-        window.setTimeout(() => URL.revokeObjectURL(url), 60000)
-        setMessage('已產生完整備份，請確認檔案已儲存到「檔案」或下載項目。')
-      } catch { setError('匯出失敗，請重試。') } finally { setBusy(false) }
-    }}>匯出完整備份</button><button className="secondary" disabled={busy} onClick={() => input.current?.click()}>匯入完整備份</button><button className="secondary" disabled={busy} onClick={async () => {
+    <label className="confirm-label"><input type="checkbox" checked={includePhotos} disabled={busy} onChange={e=>setIncludePhotos(e.target.checked)} />包含動作照片與體態照（預設包含）</label><p className="muted">未含照片的備份仍可還原；整庫取代時，本機原照片會依備份內容取代或清除。</p><div className="button-row"><BackupButton includePhotos={includePhotos} label="匯出備份" /><button className="secondary" disabled={busy} onClick={() => input.current?.click()}>匯入完整備份</button><button className="secondary" disabled={busy} onClick={async () => {
       setBusy(true); setError(''); setMessage('')
       try {
         const csv = await createCsvZip()

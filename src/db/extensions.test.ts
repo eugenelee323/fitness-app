@@ -36,7 +36,7 @@ describe('照片備份與無損升級',()=>{
     for(const [table,rows]of Object.entries(before))if(table!=='exercise_photos'&&rows.length)await old.table(table).bulkAdd(rows)
     await old.table('body_metrics').add({id:crypto.randomUUID(),date:'2026-11-15',weight_kg:60})
     await old.table('workout_sessions').add({id:crypto.randomUUID(),program_week_id:before.program_weeks[0].id,date:'2026-11-15',day_type:'push',completed:true});old.close()
-    database=new FitnessDB(name);await database.open();expect(database.verno).toBe(6);expect(await database.rows('planned_exercises').count()).toBe(216);expect(await database.rows('body_metrics').count()).toBe(1);expect((await database.rows('workout_sessions').toArray())[0].day_type).toBe('push');expect(await database.rows('exercise_photos').count()).toBe(0)
+    database=new FitnessDB(name);await database.open();expect(database.verno).toBe(7);expect(await database.rows('planned_exercises').count()).toBe(216);expect(await database.rows('body_metrics').count()).toBe(1);expect((await database.rows('workout_sessions').toArray())[0].day_type).toBe('push');expect(await database.rows('exercise_photos').count()).toBe(0)
   })
 })
 describe('補量日持續紀錄',()=>{

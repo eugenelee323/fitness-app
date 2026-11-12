@@ -32,6 +32,8 @@
 
 ## 2. 動作層級規則（決定下次重量）
 
+**單次訓練腰部確認**：與下次課表建議分開。包含壓下背動作時，開始前確認 0–10 分（快捷 0／2／5）。BACK0：0 分照原課表。BACK1：1–2 分，目標重量乘 0.9 後向下取器材級距，未知重量維持試重。BACK3：3–10 分，未完成組換成俯臥腿彎舉（leg_curl_lying），沿用其最近一筆重量，缺資料就試重。練中可重新評分，調整以原目標為基準，可手動改回。已完成組保留；調整寫入 plan_changes，適用範圍為當次草稿。
+
 由上到下判斷，符合第一條就停；一次只改一個變數（重量或組數）。
 
 | 優先 | 條件 | 建議 |
@@ -156,6 +158,8 @@ MVP 先做「記錄 → 自動計算 → 每週建議 → 確認套用」完整�
 
 ## 7. 頁面規格
 
+**首頁與週報**：首頁依台北日期判斷週次，依最近完成的推／拉日輪替，本週兩者都完成時預設補量日。可手動更換或到訓練頁選週次與日別。首頁提供一鍵備份，未備份或超過七天時醒目提醒。每週報告與下週建議頂端提供「複製週報給 Claude」。
+
 手機優先、繁體中文；底部 5 個分頁：首頁、訓練、飲食、分析、設定。一手操作，主要按鈕放在下半部。
 
 | 頁面 | 顯示內容 | 主要操作 |
@@ -170,6 +174,8 @@ MVP 先做「記錄 → 自動計算 → 每週建議 → 確認套用」完整�
 | 8. 個人設定 | 基本資料、目標、熱量與營養素目標、訓練日、器材級距、疼痛紀錄 | 編輯、匯出 / 匯入備份 |
 
 ## 8. 主要操作流程
+
+**快捷流程**：開始今日訓練 → 確認預填睡眠（上次值，無紀錄時暫填 8 小時）與適用的腰部分數 → 點選 RIR 即寫入第一組並啟動休息。預填值可直接使用時共三次點擊。完成組可在三秒內復原，最後一組後捲至下一個動作。重量依器材級距步進，次數每次加減 1。練後疲勞 1–10 單列選擇，疼痛欄預設收合。下週建議可一次接受所有待確認項目，仍可逐條拒絕或修改，最後按「產生下週課表」才套用並提示備份。週日量測畫面依序填體重、腰圍、體態照，皆可略過，一次儲存。
 
 **訓練日**
 
@@ -253,6 +259,8 @@ MVP 先做「記錄 → 自動計算 → 每週建議 → 確認套用」完整�
 | 資料安全 | 資料只在手機；每 7 天提醒匯出備份；可從備份檔完整還原 |
 
 ## 11. 資料結構（IndexedDB / Dexie）
+
+**Dexie 版本 7**：新增 body_photos（date 主鍵、blob 為本機 JPEG、updated_at）；pain_reports 新增選填 phase（pre／during／post），練前及練中以 lower_back 保存分數，納入週報。草稿新增選填原動作／調整原因與最後一組復原資訊。既有資料與欄位意義保留，舊備份缺少新增表視為空表。
 
 下方 SQL 只當作欄位與型別定義。實作時轉成 Dexie schema：每張表一個 store，id 用 `crypto.randomUUID()`，外鍵改成一般欄位並建索引；不需要 `auth.users`、`user_id`、RLS；check 條件在寫入前用 zod 驗證。`meals.photo_path`、`ai_raw` 保留為空，供日後加入 AI 時使用。
 
@@ -455,6 +463,8 @@ create table exercise_photos (
 
 ## 12. 計算公式與每週調整演算法
 
+**補充測試**：腰部規則驗證 0、1、2、3、10 分與無歷史重量。以第 1 週推日 fixture 驗證純文字週報及容量；複製資料的數值最多一位小數。
+
 放在 `lib/rules/`，全部是純函式（不讀資料庫、不呼叫 AI），每個函式都要有單元測試。規則編號對應第 2–4 節：L = 動作、M = 肌群、D = 減量、N = 飲食。
 
 | 公式 | 算法 |
@@ -602,6 +612,12 @@ export function weeklyKcalDelta(i: { logCompleteness: number; weeklyGains: numbe
 
 ## 13. 程式模組、備份與資料匯入
 
+**一鍵備份**：先準備 JSON，按鈕點擊時以 navigator.canShare({ files }) 檢查，支援時開系統分享選單，可選「儲存到檔案」再選 iCloud 雲碟。不支援檔案分享時下載。分享 API 成功返回或觸發下載後才更新上次備份時間，取消或失敗不更新。照片選項預設包含動作照片及體態照；兩表的 JPEG Blob 以 base64 編碼存入原版本 1 備份封套。
+
+**多餐貼上**：優先讀剪貼簿，無法讀取時顯示文字框。一次可含多個 #餐點 日期 餐別 區塊並跨日期。預覽分餐合計、標記錯誤與行號，修正後一次確認，所有餐點同一筆交易寫入並標為估算。
+
+**純文字週報**：第一行為「#週報 第N週（YYYY-MM-DD～YYYY-MM-DD）A/B 菜單」（A/B 顯示實際菜單）。依序列訓練及各組實績、肌群與同菜單容量比較、主動作 e1RM、疼痛、飲食、身體數據及建議狀態。複製成功顯示已複製，失敗顯示可全選文字。報告不含照片。
+
 沒有後端 API；所有功能都在手機上執行，由下列模組負責。
 
 | 模組 | 路徑 | 職責 |
@@ -625,7 +641,7 @@ export function weeklyKcalDelta(i: { logCompleteness: number; weeklyGains: numbe
 
 餐別對照：早餐 = breakfast、午餐 = lunch、晚餐 = dinner、點心 = snack。份量的 ml 以 1 ml = 1 g 記錄。
 
-**備份格式**：匯出檔 `fitness-backup-YYYYMMDD.json`，內容 `{ "version": 1, "exportedAt": "...", "rulesVersion": "...", "tables": { "<表名>": [ ... ] } }`。匯入前先驗證版本與格式，顯示各表筆數，使用者確認後整庫取代。距離上次備份超過 7 天，首頁顯示提醒。完整備份可勾選「包含動作照片」（預設包含）；exercise_photos 的 blob 在 JSON 內轉成 data:image/jpeg;base64,...，還原時驗證並轉回 Blob。取消包含時輸出空照片表；舊備份缺少此表亦視為空表。整庫還原會依備份取代／清除本機照片，介面先提示。照片主鍵按 exercise_code 驗證，不使用 id。舊版 17／20／21 表備份仍可匯入。
+**備份格式**：匯出檔 `fitness-backup-YYYYMMDD.json`，內容 `{ "version": 1, "exportedAt": "...", "rulesVersion": "...", "tables": { "<表名>": [ ... ] } }`。匯入前先驗證版本與格式，顯示各表筆數，使用者確認後整庫取代。距離上次備份超過 7 天，首頁顯示提醒。完整備份可勾選「包含動作照片與體態照」（預設包含）；exercise_photos 的 blob 在 JSON 內轉成 data:image/jpeg;base64,...，還原時驗證並轉回 Blob。取消包含時輸出空照片表；舊備份缺少此表亦視為空表。整庫還原會依備份取代／清除本機照片，介面先提示。照片主鍵按 exercise_code 驗證，不使用 id。舊版 17／20／21 表備份仍可匯入。
 
 **個人初始資料 my-data.json**：同備份格式，只含 user\_profiles、nutrition\_targets、body\_metrics 與第 1 週推日紀錄。第一次開啟 APP 時請使用者匯入；此檔列入 `.gitignore`，不上傳到 GitHub。動作庫與 12 週計畫則內建在程式的 seed 中。
 
@@ -686,7 +702,7 @@ export function weeklyKcalDelta(i: { logCompleteness: number; weeklyGains: numbe
 ```text
 依 docs/spec.md 第 7、8 節實作訓練紀錄：
 1. 首頁儀表板：第幾週、A / B 菜單、是否減量、今日課表、本週完成率、備份提醒。
-2. 今日訓練：動作卡片顯示目標與上次數據；每組預填目標；「完成這組」後自動開始休息計時；單手動作分左右記錄；替換動作。
+2. 今日訓練：動作卡片顯示目標與上次數據；每組預填目標；點選 RIR 即記錄該組並開始休息計時；單手動作分左右記錄；替換動作。
 3. 結束訓練填疲勞、睡眠、疼痛；顯示當次容量、各肌群有效組數（用 src/lib/rules 的 setVolume、fractionalSets）。
 4. 訓練歷史列表與單次詳情。
 5. 設定頁：匯出 / 匯入 JSON 備份（第 13 節格式），匯入前顯示各表筆數並確認。
@@ -792,3 +808,25 @@ export function weeklyKcalDelta(i: { logCompleteness: number; weeklyGains: numbe
 | pull | 9 | rear\_raise\_chest\_sup | 上斜凳胸靠反向飛鳥 / Chest-supported Rear Delt Raise | rear\_delt | — | dumbbell\_pair | 1 | 否 | 否 | 否 |
 
 **替代動作對照**：A 與 B 同順序動作互為替代；rdl\_bb 的腰部替代為 leg\_curl\_lying。
+
+## 16. 視覺規範
+
+預設深色，設定可選「跟隨系統／深色／淺色」。色彩集中於 src/style.css 的 CSS 變數。
+
+| 變數 | 深色 | 淺色 |
+| --- | --- | --- |
+| --bg | #0E0E0F | #F5F5F5 |
+| --surface | #18181A | #FFFFFF |
+| --surface-raised | #232325 | #EDEDED |
+| --border | #2A2A2C | #E0E0E0 |
+| --border-strong | #48484A | #C7C7CC |
+| --text | #F2F2F2 | #111111 |
+| --text-2 | #A1A1A6 | #6E6E73 |
+| --text-3 | #5C5C60 | #AEAEB2 |
+| --danger | #E5484D | #D93036 |
+
+- 每畫面最多一個主動作，使用 --text 底與 --bg 文字。次要操作使用 0.5 px 外框，RIR、日別與分頁的選取項為實心。卡片圓角 16 px、按鈕 12 px，操作區高度至少 44 px。
+- 採用 -apple-system、SF Pro Text、PingFang TC、Noto Sans TC、sans-serif，字重 400／500，數字等寬，休息計時 40 px／500。內文對比至少 4.5:1。達標、完成與進步用灰階 Tabler outline 圖示，警示用 --danger。淺色警示紅用在圖示或框線，警示文字使用高對比文字色。介面不使用陰影、漸層或毛玻璃。
+- Recharts 以 --text 表示目前資料、--text-3 表示對照、--surface-raised 標示建議區間、--border 畫格線，警示點才用 --danger。
+- iOS 的 theme-color 隨主題切換，manifest 的 background_color、theme_color 固定 #0E0E0F。狀態列用 black-translucent，使用安全區內距。黑底米白「12」圖示由本地 SVG 產生 PNG。
+- 驗收涵蓋 iPhone 主畫面的分享與儲存到檔案、拉日腰部替換、跨 App 貼上週報、三次點擊記第一組、四餐一次貼上、兩種主題對比與色碼掃描、舊備份還原、lint／typecheck／test／build。
