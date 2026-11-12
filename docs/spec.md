@@ -16,12 +16,12 @@
 | 睡眠 | 小時 | 每次訓練前一晚 |
 | 疼痛 | 部位 ＋ 0–10 分 | 每次訓練 |
 | 完成 | 是 / 否 | 每次訓練 |
-| 體重、腰圍 | kg、cm | 體重每天晨起，腰圍每週 |
+| 體重、腰圍 | kg、cm | 每週日早上起床如廁後、進食前各量一次 |
 | 飲食 | 照片 → 熱量、三大營養素 | 每餐 |
 
 | 指標 | 算法 |
 | --- | --- |
-| 完成率 | 實際完成組數 ÷ 計畫組數 |
+| 完成率 | 實際完成組數 ÷ 計畫組數；補量日未練不計分母，記下第一組後加入該補量日完整計畫組數 |
 | 有效組數（各肌群） | RIR ≤ 3 的組：主要肌群算 1，輔助肌群算 0.5 |
 | 容量 | 重量 × 次數，逐組加總；雙手啞鈴 ×2；單手動作左右各算；引體、雙槓用體重＋掛重 |
 | 容量變化 | (本週 − 上次同菜單) ÷ 上次同菜單 |
@@ -90,17 +90,27 @@
 | 熱量達標 | 2,450–2,550 kcal ± 10%（約 2,200–2,800） |
 | 蛋白質達標 | ≥ 145 g |
 | 當日結果 | 兩項都達標 ＝ 達標；只有一項 ＝ 部分達標 |
-| 紀錄完整率 | 有照片的餐數 ÷ 預計餐數（訓練日 4、休息日 3） |
+| 紀錄完整率 | 有記錄的餐別數 ÷ 預計餐數（訓練日 4、休息日 3） |
 | 估算來源 | 有營養標示優先用標示；其他照片傳給 Claude 估算，把結果貼入 APP，標「估」 |
 
 **每週體重與熱量調整**
 
-- 用 7 日平均體重，不看單日。目標每週 +0.15～0.25 kg。
+- 每週記錄一次體重與腰圍，固定週日早上起床如廁後、進食前測量。週界線為 Asia/Taipei 的週一至週日；同一週多筆取最後一筆，不刪除既有每日紀錄、不計 7 日平均。目標每週 +0.15～0.25 kg。
+- 相鄰兩週採用體重相減得到週增重；缺任何一週就不跨週補值。連續 2 次週變化需有相鄰 3 週紀錄。腰圍用本週最後一筆減 4 週前最後一筆，任一缺值不推算。
 - 紀錄完整率 < 70%：不調熱量，先提醒補紀錄。
-- 連續 2 週平均增重 < 0.1 kg：每日 +150 kcal。
-- 平均增重 > 0.35 kg/週，或腰圍 4 週 +2 cm：每日 −150 kcal。
+- 連續 2 週週增重 < 0.1 kg：每日 +150 kcal。
+- 單週增重 > 0.35 kg/週，或腰圍 4 週 +2 cm：每日 −150 kcal。
 - 蛋白質週平均 < 130 g：只提醒補蛋白質，不改熱量。
 - 熱量一次最多調 150 kcal，調整後至少觀察 2 週。
+
+
+**補量日（選填，每週最多一次）**
+
+- day_type = extra。訓練頁與推日、拉日並列，最多每個台北日曆週一次；同一計畫週也最多一次。進行中可接續，結束後不可重複開始。
+- 固定課表：上斜啞鈴臥推 3×8–12、坐姿繩索划船 3×10–12、側平舉機 4×12–15、繩索彎舉 3×10–12、繩索三頭下壓 3×10–12、臉拉 2×12–15，共 18 組；RIR 2–3（預填 2），前兩項休息 90 秒，其餘 60 秒。
+- 重量沿用該動作最近一次實績，首次試重；第一次選擇開始才建立該週的六筆 planned_exercises，並寫 plan_changes。補量日模板不由下週訓練建議自動加減組，減量週仍由使用者自行選擇是否練。
+- 未練不計入完成率分母；記錄第一組後分母增加 18 組，所有實際組數、容量、e1RM 與肌群有效組數均納入該週統計。
+- 開始前檢查與已知拉日的間隔：少於 48 小時提醒；舊紀錄只有日期時，前後 2 個日曆日保守提醒可能不足 48 小時。提供「預計下次推日日期（選填）」；填隔天或已有隔天推日紀錄時提醒。提醒可取消或明確選擇繼續，不阻擋訓練。
 
 ## 5. 建議輸出格式與實例
 
@@ -138,7 +148,7 @@ MVP 先做「記錄 → 自動計算 → 每週建議 → 確認套用」完整�
 | 飲食 | 每日熱量、蛋白質進度條與達標判定 | MVP |
 | 飲食 | 常用餐點（一鍵帶入常吃的便當、乳清） | MVP |
 | 飲食 | APP 內拍照 AI 估算、營養標示辨識 | 後續（需 AI 金鑰與後端） |
-| 身體 | 每日體重、7 日平均、每週腰圍 | MVP |
+| 身體 | 每週體重與腰圍、每週最後一筆趨勢 | MVP |
 | 資料 | 全部資料匯出 / 匯入 JSON 備份、匯出 CSV、每 7 天提醒備份 | MVP |
 | 資料 | 第一次開啟匯入個人初始資料（my-data.json） | MVP |
 | 其他 | 雲端同步、多裝置 | 後續（需資料庫帳號） |
@@ -150,9 +160,9 @@ MVP 先做「記錄 → 自動計算 → 每週建議 → 確認套用」完整�
 
 | 頁面 | 顯示內容 | 主要操作 |
 | --- | --- | --- |
-| 1. 首頁儀表板 | 第幾週 / A 或 B 菜單 / 是否減量週；今日課表；本週完成率；今日熱量與蛋白質進度條；7 日平均體重 | 開始訓練、記一餐、記體重 |
+| 1. 首頁儀表板 | 第幾週 / A 或 B 菜單 / 是否減量週；今日課表；本週完成率；今日熱量與蛋白質進度條；本週體重與週差值；僅週日顯示「本週量體重與腰圍」及量測時機提醒 | 開始訓練、記一餐、記本週體重與腰圍 |
 | 2. 12 週計畫 | 12 週列表，每週可展開推日 / 拉日動作、組數、目標重量；已完成週標示實際結果 | 調整訓練日、查看動作說明 |
-| 3. 今日訓練 | 動作卡片：中英文名、目標（組×次、重量、RIR、休息）、上次數據、注意事項；每組一列輸入格 | 預填目標 → 改不同處 → 按「完成這組」自動開始計時；替換動作；結束時填疲勞 / 睡眠 / 疼痛 |
+| 3. 今日訓練 | 推日／拉日／補量日；動作卡片：中英文名、自備照片／拍照入口、目標（組×次、重量、RIR、休息）、上次數據、注意事項；每組一列輸入格 | 預填目標 → 改不同處 → 按「完成這組」自動開始計時；替換動作；結束時填疲勞 / 睡眠 / 疼痛 |
 | 4. 訓練分析 | 各肌群每週有效組數（與目標區間對照）、容量趨勢、主動作 e1RM 曲線 | 切換肌群 / 動作 / 時間範圍 |
 | 5. 飲食紀錄 | 今日各餐（照片、食物、公克數、熱量、三大營養素），每餐合計與當日合計；估算值標「估」 | 手動輸入 / 貼上 Claude 估算 / 常用餐點；修改份量 |
 | 6. 每週分析報告 | 完成率、各肌群組數與容量、進步 / 停滯動作、疲勞與睡眠、飲食達標天數、體重趨勢 | 前往下週建議 |
@@ -163,7 +173,7 @@ MVP 先做「記錄 → 自動計算 → 每週建議 → 確認套用」完整�
 
 **訓練日**
 
-1. 首頁按「開始訓練」，進入今日訓練。
+1. 首頁按「開始訓練」，進入今日訓練，可選推日、拉日或選填補量日；補量日先檢查間隔提醒。
 2. 每個動作顯示目標與上次數據；每組已預填目標重量與次數。
 3. 做完一組：改實際次數、選 RIR，按「完成這組」，休息計時自動開始。
 4. 器材被佔或疼痛 → 按「替換」，從同肌群替代動作中選一個。
@@ -313,7 +323,7 @@ create table program_weeks (
 create table planned_exercises (
   id uuid primary key default gen_random_uuid(),
   program_week_id uuid not null references program_weeks on delete cascade,
-  day_type text not null check (day_type in ('push','pull')),
+  day_type text not null check (day_type in ('push','pull','extra')),
   order_no int not null,
   exercise_id uuid not null references exercises,
   sets int not null, rep_min int not null, rep_max int not null,
@@ -427,6 +437,22 @@ create table body_metrics (
 );
 ```
 
+
+**動作照片（裝置本機）**
+
+- 每張訓練動作卡片與計畫動作名稱下顯示使用者自備照片，尚無照片顯示 Tabler 器材圖示與「拍照／選照片」。相機 input 使用 accept="image/*" capture="environment"，另有不帶 capture 的相簿選取入口；可更換、確認後刪除。
+- 在瀏覽器 Canvas 重新編碼為 JPEG，長邊最大 800 px（小圖不放大）、品質 0.82、透明處補白，移除原檔 EXIF；以 Blob 儲存在 IndexedDB。不內建或從網路下載圖片，不上傳至 repo 或任何服務。
+- 新表 exercise_photos：exercise_code 為主鍵（對應 exercises.code）、blob 為 JPEG Blob、updated_at 為 ISO 時間。每動作一張，跨菜單與替代動作以 code 各自保存。
+- Dexie 版本 6 新增此表及訓練週次／日別複合索引；所有舊表與紀錄原地保留。day_type 擴充 extra，舊 push／pull 與舊草稿仍有效。
+
+```sql
+create table exercise_photos (
+  exercise_code text primary key references exercises(code),
+  blob blob not null,
+  updated_at text not null
+);
+```
+
 ## 12. 計算公式與每週調整演算法
 
 放在 `lib/rules/`，全部是純函式（不讀資料庫、不呼叫 AI），每個函式都要有單元測試。規則編號對應第 2–4 節：L = 動作、M = 肌群、D = 減量、N = 飲食。
@@ -437,7 +463,9 @@ create table body_metrics (
 | e1RM | 有效負重 × (1 + (次數 + RIR) ÷ 30) |
 | BMR（Mifflin-St Jeor） | 10 × 體重 + 6.25 × 身高 − 5 × 年齡 + 5（男）或 −161（女） |
 | TDEE | BMR × 活動係數（久坐 1.2、輕度 1.375、中度 1.55）＋ 每次訓練約 300 kcal × 每週次數 ÷ 7 |
-| 7 日平均體重 | 過去 7 天有紀錄的體重平均（至少 4 筆才計算） |
+| 每週體重 | 週一至週日取最後一筆；不取平均，不足週數顯示資料不足 |
+| 體重週變化 | 本週體重 − 前一週體重；連續 2 次週變化需相鄰 3 週皆有紀錄 |
+| 4 週腰圍變化 | 本週最後一筆腰圍 − 4 週前最後一筆腰圍，缺值不推算 |
 
 ```ts
 // lib/rules/index.ts
@@ -549,7 +577,7 @@ export function dailyStatus(t: { kcal: number; proteinMin: number }, d: { kcal: 
   return kcalOk && proteinOk ? 'met' : kcalOk || proteinOk ? 'partial' : 'missed';
 }
 
-export function weeklyKcalDelta(i: { logCompleteness: number; weeklyGains: number[]; // 最近兩週，kg/週（由 7 日平均算）
+export function weeklyKcalDelta(i: { logCompleteness: number; weeklyGains: number[]; // 最近兩週，kg/週（由相鄰週最後一筆體重相減）
   waistChange4w: number; weeksSinceLastAdjust: number }): { delta: number; ruleId: string } {
   if (i.logCompleteness < 0.7) return { delta: 0, ruleId: 'N1' };
   if (i.weeksSinceLastAdjust < 2) return { delta: 0, ruleId: 'N5' };
@@ -597,7 +625,7 @@ export function weeklyKcalDelta(i: { logCompleteness: number; weeklyGains: numbe
 
 餐別對照：早餐 = breakfast、午餐 = lunch、晚餐 = dinner、點心 = snack。份量的 ml 以 1 ml = 1 g 記錄。
 
-**備份格式**：匯出檔 `fitness-backup-YYYYMMDD.json`，內容 `{ "version": 1, "exportedAt": "...", "rulesVersion": "...", "tables": { "<表名>": [ ... ] } }`。匯入前先驗證版本與格式，顯示各表筆數，使用者確認後整庫取代。距離上次備份超過 7 天，首頁顯示提醒。
+**備份格式**：匯出檔 `fitness-backup-YYYYMMDD.json`，內容 `{ "version": 1, "exportedAt": "...", "rulesVersion": "...", "tables": { "<表名>": [ ... ] } }`。匯入前先驗證版本與格式，顯示各表筆數，使用者確認後整庫取代。距離上次備份超過 7 天，首頁顯示提醒。完整備份可勾選「包含動作照片」（預設包含）；exercise_photos 的 blob 在 JSON 內轉成 data:image/jpeg;base64,...，還原時驗證並轉回 Blob。取消包含時輸出空照片表；舊備份缺少此表亦視為空表。整庫還原會依備份取代／清除本機照片，介面先提示。照片主鍵按 exercise_code 驗證，不使用 id。舊版 17／20／21 表備份仍可匯入。
 
 **個人初始資料 my-data.json**：同備份格式，只含 user\_profiles、nutrition\_targets、body\_metrics 與第 1 週推日紀錄。第一次開啟 APP 時請使用者匯入；此檔列入 `.gitignore`，不上傳到 GitHub。動作庫與 12 週計畫則內建在程式的 seed 中。
 
@@ -611,7 +639,7 @@ export function weeklyKcalDelta(i: { logCompleteness: number; weeklyGains: numbe
 | 1. 訓練紀錄 | 首頁、今日訓練、休息計時、替代動作、訓練後填疲勞 / 睡眠 / 疼痛、歷史紀錄、備份匯出 / 匯入 | 一組記錄 ≤ 3 次點擊；關掉 APP 再開資料仍在；匯出再匯入後資料完全一致 |
 | 2. 規則引擎與每週分析 | `src/lib/rules/` 與測試、每週報告、建議確認、產生下週課表、修改歷史、建議文字範本 | 第 12 節測試案例全過；覆蓋率 ≥ 90%；未確認的建議不會改課表 |
 | 3. 飲食 | 手動輸入、貼上 Claude 估算、常用餐點、當日進度與達標判定、熱量調整建議 | 第 13 節範例文字可正確解析成 2 項；格式錯誤不會當掉 |
-| 4. 身體與分析圖表 | 體重 / 腰圍、7 日平均、容量趨勢、e1RM 曲線、CSV 匯出 | 圖表與資料一致；CSV 可用 Excel 開啟 |
+| 4. 身體與分析圖表 | 每週體重 / 腰圍、每週趨勢、容量趨勢、e1RM 曲線、CSV 匯出 | 圖表與資料一致；CSV 可用 Excel 開啟 |
 | 5. 後續 | 雲端同步、APP 內 AI 拍照、推播、步數同步 | 需要時再加，會用到資料庫與 AI 帳號 |
 
 ## 15. 交給 Codex 的開發指令與初始資料
@@ -693,7 +721,7 @@ export function weeklyKcalDelta(i: { logCompleteness: number; weeklyGains: numbe
 
 ```text
 依 docs/spec.md 實作身體數據與圖表：
-1. 體重（每日）與腰圍（每週）輸入；7 日平均。
+1. 體重與腰圍每週日量一次，同週採最後一筆，分析顯示每週一點折線。
 2. 訓練分析頁：各肌群每週有效組數（標出 10–20 組區間）、每週容量趨勢、主動作 e1RM 曲線（Recharts）。
 3. 匯出 CSV：每張表一個 CSV 打包成 zip，UTF-8 BOM 以便 Excel 開啟。
 驗收：第 14 節階段 4。

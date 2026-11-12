@@ -1,3 +1,5 @@
+import Dexie from 'dexie'
+import { backupPhotoSchema, photoBlob, photoDataUrl } from '../photos'
 import { z } from 'zod'
 import { db, type FitnessDB } from '../../db'
 import { schemas, tableNames, type TableName, type Row } from '../../db/schema'
@@ -6,7 +8,7 @@ import { RULES_VERSION } from '../rules'
 import { taipeiDate } from '../time'
 
 export type Snapshot = Record<TableName, Record<string, unknown>[]>
-const baseTables = tableNames.filter(n => !['workout_drafts', 'app_meta', 'import_links', 'favorite_meals'].includes(n))
+const baseTables = tableNames.filter(n => !['workout_drafts', 'app_meta', 'import_links', 'favorite_meals', 'exercise_photos'].includes(n))
 const envelope = z.object({ version: z.literal(1), exportedAt: z.iso.datetime({ offset: true }), rulesVersion: z.string().min(1), tables: z.record(z.string(), z.array(z.record(z.string(), z.unknown()))) }).strict()
 
 export function validateSnapshot(tables: Snapshot) {
@@ -16,8 +18,8 @@ export function validateSnapshot(tables: Snapshot) {
     if (tables[from].some(r => !has(to, r[field]))) throw new Error(`${from}.${field} 找不到對應資料`)
   }
   for (const name of tableNames) {
-    for (const row of tables[name]) schemas[name].parse(row)
-    const keys = tables[name].map(r => name === 'exercise_alternatives' ? `${r.exercise_id}:${r.alt_exercise_id}` : name === 'app_meta' || name === 'import_links' ? r.key : r.id)
+    for (const row of tables[name]) { if(name==='exercise_photos'){backupPhotoSchema.parse(row);photoBlob(row.blob as string)}else schemas[name].parse(row) }
+    const keys = tables[name].map(r => name === 'exercise_photos' ? r.exercise_code : name === 'exercise_alternatives' ? `${r.exercise_id}:${r.alt_exercise_id}` : name === 'app_meta' || name === 'import_links' ? r.key : r.id)
     if (new Set(keys).size !== keys.length) throw new Error(`${name} 含重複主鍵`)
   }
   const unique = (name: TableName, fields: string[]) => {
@@ -37,6 +39,7 @@ export function validateSnapshot(tables: Snapshot) {
     ['recommendations', 'analysis_id', 'weekly_analyses'], ['plan_changes', 'recommendation_id', 'recommendations'], ['plan_changes', 'planned_exercise_id', 'planned_exercises'],
     ['meal_items', 'meal_id', 'meals'], ['meal_items', 'food_id', 'foods'], ['workout_drafts', 'session_id', 'workout_sessions'],
   ] as [TableName, string, TableName][]) requireRef(from, field, to)
+  if(tables.exercise_photos.some(p=>!tables.exercises.some(ex=>ex.code===p.exercise_code)))throw new Error('動作照片找不到對應動作。')
   for (const raw of tables.workout_drafts) {
     const draft = schemas.workout_drafts.parse(raw)
     if (tables.workout_sessions.find(s => s.id === draft.session_id)?.completed) throw new Error('已結束訓練不可含草稿')
@@ -49,10 +52,13 @@ export function validateSnapshot(tables: Snapshot) {
     }
   }
 }
-export async function readSnapshot(database: FitnessDB = db): Promise<Snapshot> {
+export async function readSnapshot(database: FitnessDB = db, includePhotos=true): Promise<Snapshot> {
   return database.transaction('r', database.tables, async () => {
     const pairs = await Promise.all(tableNames.map(async name => [name, await database.table(name).toArray()]))
-    return JSON.parse(JSON.stringify(Object.fromEntries(pairs))) as Snapshot
+    const raw=Object.fromEntries(pairs) as Snapshot
+    if(!includePhotos)raw.exercise_photos=[]
+    raw.exercise_photos=await Dexie.waitFor(Promise.all(raw.exercise_photos.map(async row=>({...row,blob:await photoDataUrl(row.blob as Blob)}))))
+    return JSON.parse(JSON.stringify(raw)) as Snapshot
   })
 }
 export function prepareBackup(content: string) {
@@ -61,7 +67,7 @@ export function prepareBackup(content: string) {
   const input = parsed.data.tables
   if (Object.keys(input).some(n => !tableNames.includes(n as TableName)) || baseTables.some(n => !Array.isArray(input[n]))) throw new Error('完整備份缺少必要資料表或含未知資料表。')
   const tables = {} as Snapshot
-  for (const name of tableNames) tables[name] = (input[name] ?? []).map(row => schemas[name].parse(row))
+  for (const name of tableNames) tables[name] = (input[name] ?? []).map(row => name==='exercise_photos'?backupPhotoSchema.parse(row):schemas[name].parse(row))
   const normalized = withPlanBaselines(tables.program_weeks as Row<'program_weeks'>[], tables.planned_exercises as Row<'planned_exercises'>[])
   tables.program_weeks = normalized.weeks
   tables.planned_exercises = normalized.plans
@@ -69,11 +75,12 @@ export function prepareBackup(content: string) {
   return { ...parsed.data, tables, counts: tableNames.map(name => ({ name, count: tables[name].length })) }
 }
 export type BackupPreview = ReturnType<typeof prepareBackup>
-export async function createBackup(database: FitnessDB = db, now = new Date()) {
+export async function createBackup(database: FitnessDB = db, now = new Date(), options: {includePhotos?:boolean} = {}) {
   const exportedAt = now.toISOString()
   return database.transaction('rw', database.tables, async () => {
     await database.rows('app_meta').put({ key: 'last_backup_at', value: exportedAt })
-    const tables = await readSnapshot(database)
+    const tables = await readSnapshot(database,options.includePhotos!==false)
+    if(options.includePhotos===false)tables.exercise_photos=[]
     return { filename: `fitness-backup-${taipeiDate(now).replaceAll('-', '')}.json`, content: JSON.stringify({ version: 1, exportedAt, rulesVersion: RULES_VERSION, tables }, null, 2) }
   })
 }
@@ -81,7 +88,7 @@ export async function restoreBackup(preview: BackupPreview, database: FitnessDB 
   validateSnapshot(preview.tables)
   await database.transaction('rw', database.tables, async () => {
     for (const name of tableNames) await database.table(name).clear()
-    for (const name of tableNames) if (preview.tables[name].length) await database.table(name).bulkAdd(preview.tables[name])
+    for (const name of tableNames) if (preview.tables[name].length) await database.table(name).bulkAdd(name==='exercise_photos'?preview.tables[name].map(row=>({...row,blob:photoBlob(row.blob as string)})):preview.tables[name])
   })
 }
-export const tableLabels: Record<TableName, string> = { favorite_meals: '常用餐點', user_profiles: '個人資料', nutrition_targets: '營養目標', exercises: '動作庫', exercise_alternatives: '替代動作', programs: '訓練計畫', program_weeks: '計畫週次', planned_exercises: '計畫動作', workout_sessions: '訓練紀錄', workout_sets: '實際組數', pain_reports: '疼痛紀錄', weekly_analyses: '每週分析', recommendations: '建議', plan_changes: '課表變更', foods: '食物', meals: '餐點', meal_items: '餐點項目', body_metrics: '身體數據', workout_drafts: '進行中訓練', app_meta: '本機設定', import_links: '匯入對應' }
+export const tableLabels: Record<TableName, string> = { exercise_photos: '動作照片', favorite_meals: '常用餐點', user_profiles: '個人資料', nutrition_targets: '營養目標', exercises: '動作庫', exercise_alternatives: '替代動作', programs: '訓練計畫', program_weeks: '計畫週次', planned_exercises: '計畫動作', workout_sessions: '訓練紀錄', workout_sets: '實際組數', pain_reports: '疼痛紀錄', weekly_analyses: '每週分析', recommendations: '建議', plan_changes: '課表變更', foods: '食物', meals: '餐點', meal_items: '餐點項目', body_metrics: '身體數據', workout_drafts: '進行中訓練', app_meta: '本機設定', import_links: '匯入對應' }

@@ -5,6 +5,8 @@ import { db } from './db'
 import { targetForDate } from './lib/rules/nutrition'
 import { useClock } from './hooks/useClock'
 import { taipeiDate } from './lib/time'
+import { dayLabels } from './lib/rules/extra'
+import { ExercisePhoto } from './pages/ExercisePhoto'
 import { Body } from './pages/Body'
 import { Nutrition } from './pages/Nutrition'
 import { Dashboard } from './pages/Dashboard'
@@ -66,9 +68,9 @@ function Plan() {
     <div className="note">第 2 週已帶入初始目標重量；後續依已接受的建議更新。減量週若延後，會顯示確認後的新安排。</div>
     <div className="weeks">{data?.weeks.map(week => <details className="card week" key={week.id}>
       <summary><span className="week-number">{String(week.week_no).padStart(2, '0')}</span><span className="week-title">第 {week.week_no} 週<small>階段 {week.phase} · {week.menu} 菜單</small></span><span className={week.is_deload ? 'badge deload' : 'badge'}>{week.is_deload ? '減量週' : '訓練週'}</span><span className="chevron">＋</span></summary>
-      <div className="week-content">{(['push', 'pull'] as const).map(day => <section key={day}><h3>{day === 'push' ? '推日' : '拉日'}</h3>{data.plans.filter(p => p.program_week_id === week.id && p.day_type === day).sort((a, b) => a.order_no - b.order_no).map(plan => {
+      <div className="week-content">{(['push', 'pull', 'extra'] as const).map(day => <section key={day}><h3>{dayLabels[day]}</h3>{day==='extra'&&!data.plans.some(p=>p.program_week_id===week.id&&p.day_type==='extra')&&<p className="muted">選填，從訓練頁開始後建立課表。</p>}{data.plans.filter(p => p.program_week_id === week.id && p.day_type === day).sort((a, b) => a.order_no - b.order_no).map(plan => {
         const ex = data.exercises.find(e => e.id === plan.exercise_id)
-        return <article className="exercise" key={plan.id}><h4>{ex?.name_zh}<small>{ex?.name_en}</small></h4><p>{plan.sets} 組 × {plan.rep_min}–{plan.rep_max} 下 · 保留 {plan.target_rir} 下 · 休息 {plan.rest_sec} 秒</p><span className="weight">{plan.is_paused ? "已暫停 · " : ""}{plan.target_weight_kg == null ? '試重／待確認' : `${plan.target_weight_kg} kg${ex?.load_type.startsWith('dumbbell') ? '／單支' : ex?.load_type === 'bodyweight' ? ' 掛重' : ''}`}</span>{ex?.cues && <p className="muted">{ex.cues}</p>}</article>
+        return <article className="exercise" key={plan.id}><h4>{ex?.name_zh}<small>{ex?.name_en}</small></h4>{ex&&<ExercisePhoto code={ex.code} name={ex.name_zh} />}<p>{plan.sets} 組 × {plan.rep_min}–{plan.rep_max} 下 · 保留 {plan.target_rir} 下 · 休息 {plan.rest_sec} 秒</p><span className="weight">{plan.is_paused ? "已暫停 · " : ""}{plan.target_weight_kg == null ? '試重／待確認' : `${plan.target_weight_kg} kg${ex?.load_type.startsWith('dumbbell') ? '／單支' : ex?.load_type === 'bodyweight' ? ' 掛重' : ''}`}</span>{ex?.cues && <p className="muted">{ex.cues}</p>}</article>
       })}</section>)}</div>
     </details>)}</div></>
 }

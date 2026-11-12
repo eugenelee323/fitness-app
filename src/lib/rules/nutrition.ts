@@ -17,7 +17,7 @@ export interface NutritionDay {
 export interface NutritionWeek {
   days: NutritionDay[]; recorded: number; expected: number; completeness: number
   loggedDays: number; metDays: number; partialDays: number; avgProtein: number | null
-  weightAverages: (number | null)[]; weeklyGains: number[]; waistChange4w: number | null
+  weeklyWeights: (number | null)[]; measurementMode: 'weekly'; weeklyGains: number[]; waistChange4w: number | null
   weeksSinceLastAdjust: number; target: Row<'nutrition_targets'> | null; delta: number; ruleId: string; notices: string[]
 }
 export function sumNutrients(items: Nutrients[]): Nutrients {
@@ -50,27 +50,28 @@ export function calendarDate(date: string, offset: number): string {
 export function weekDates(weekNo: number): string[] {
   return Array.from({ length: 7 }, (_, i) => calendarDate('2026-11-09', (weekNo - 1) * 7 + i))
 }
-export function weightAverage(metrics: Row<'body_metrics'>[], end: string): number | null {
-  const start = calendarDate(end, -6)
-  const values = metrics.filter(m => m.date >= start && m.date <= end && m.weight_kg != null).map(m => m.weight_kg!)
-  return values.length >= 4 ? values.reduce((sum, value) => sum + value, 0) / values.length : null
+/** 台北日期字串的週一；不依裝置時區改變週界線。 */
+export function calendarWeekStart(date: string): string { return calendarDate(date, -(new Date(date+'T00:00:00Z').getUTCDay()+6)%7) }
+export function isMeasurementSunday(date: string): boolean { return new Date(date+'T00:00:00Z').getUTCDay() === 0 }
+export function weeklyMeasurement(metrics: Row<'body_metrics'>[], end: string) {
+  const start=calendarWeekStart(end)
+  return metrics.filter(m=>m.date>=start && m.date<=end).sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id))[0] ?? null
 }
-/** 同一結束日的連續 7 日視窗；不足四個日期不推算。 */
 export function bodySummary(metrics: Row<'body_metrics'>[], end: string) {
-  const weightAverages = [-14, -7, 0].map(offset => weightAverage(metrics, calendarDate(end, offset)))
-  const weeklyGains: number[] = []
-  if (weightAverages[2] != null && weightAverages[1] != null) {
-    if (weightAverages[0] != null) weeklyGains.push(Math.round((weightAverages[1] - weightAverages[0]) * 1e6) / 1e6)
-    weeklyGains.push(Math.round((weightAverages[2] - weightAverages[1]) * 1e6) / 1e6)
+  const start=calendarWeekStart(end)
+  const measurement=weeklyMeasurement(metrics,end)
+  const weeklyWeights=[calendarDate(start,-8),calendarDate(start,-1),end].map(date=>weeklyMeasurement(metrics,date)?.weight_kg ?? null)
+  const weeklyGains:number[]=[]
+  if(weeklyWeights[2]!=null && weeklyWeights[1]!=null) {
+    if(weeklyWeights[0]!=null)weeklyGains.push(Math.round((weeklyWeights[1]-weeklyWeights[0])*1e6)/1e6)
+    weeklyGains.push(Math.round((weeklyWeights[2]-weeklyWeights[1])*1e6)/1e6)
   }
-  const count = metrics.filter(m => m.date >= calendarDate(end, -6) && m.date <= end && m.weight_kg != null).length
-  const latestWaist = (until: string) => metrics.filter(m => m.date >= calendarDate(until, -6) && m.date <= until && m.waist_cm != null).sort((a, b) => b.date.localeCompare(a.date))[0]?.waist_cm
-  const waist = latestWaist(end)
-  const oldWaist = latestWaist(calendarDate(end, -28))
-  const waistChange4w = waist != null && oldWaist != null ? Math.round((waist - oldWaist) * 1e6) / 1e6 : null
-  const change = weeklyGains.at(-1) ?? null
-  const status = change == null ? 'unknown' : change < .15 ? 'below' : change > .25 ? 'above' : 'target'
-  return { weightAverages, weeklyGains, waistChange4w, change, status, count }
+  const waist=measurement?.waist_cm
+  const oldWaist=weeklyMeasurement(metrics,calendarDate(start,-22))?.waist_cm
+  const waistChange4w=waist!=null && oldWaist!=null?Math.round((waist-oldWaist)*1e6)/1e6:null
+  const change=weeklyGains.at(-1) ?? null
+  const status=change==null?'unknown':change<.15?'below':change>.25?'above':'target'
+  return {weeklyWeights,weeklyGains,waistChange4w,change,status,measurement,count:metrics.filter(m=>m.date>=start&&m.date<=end).length}
 }
 export function adjustedNutrition(target: Row<'nutrition_targets'>, kcal: number) {
   if (!Number.isInteger(kcal) || kcal <= 0 || Math.abs(kcal - target.kcal) > 150) throw new Error('熱量一次只能調整最多 150 kcal。')
@@ -88,7 +89,7 @@ export function nutritionWeek(input: NutritionInput, weekNo: number, today: stri
   const avgProtein = logged.length ? logged.reduce((sum, day) => sum + day.total.protein_g, 0) / logged.length : null
   const end = dates[6] < today ? dates[6] : today
   const target = targetForDate(input.nutritionTargets ?? [], end)
-  const { weightAverages, weeklyGains: gains, waistChange4w } = bodySummary(input.bodyMetrics ?? [], end)
+  const { weeklyWeights, weeklyGains: gains, waistChange4w } = bodySummary(input.bodyMetrics ?? [], end)
   const history = (input.nutritionTargets ?? []).filter(t => t.effective_from <= end).sort((a, b) => a.effective_from.localeCompare(b.effective_from) || (a.created_at ?? '').localeCompare(b.created_at ?? ''))
   const adjustments = history.filter((t, index) => index > 0 && t.kcal !== history[index - 1].kcal)
   const lastAdjust = adjustments.at(-1)
@@ -107,5 +108,5 @@ export function nutritionWeek(input: NutritionInput, weekNo: number, today: stri
   }
   if (target && (input.nutritionTargets ?? []).some(t => t.effective_from > end && t.kcal !== target.kcal)) { delta = 0; ruleId = 'N5'; notices.push(explain('N-future', {})) }
   if (!gains.length && waistChange4w == null) notices.push(explain('N-no-weight', {}))
-  return { days, recorded, expected, completeness, loggedDays: logged.length, metDays: logged.filter(d => d.status === 'met').length, partialDays: logged.filter(d => d.status === 'partial').length, avgProtein, weightAverages, weeklyGains: gains, waistChange4w, weeksSinceLastAdjust, target, delta, ruleId, notices }
+  return { measurementMode: 'weekly', days, recorded, expected, completeness, loggedDays: logged.length, metDays: logged.filter(d => d.status === 'met').length, partialDays: logged.filter(d => d.status === 'partial').length, avgProtein, weeklyWeights, weeklyGains: gains, waistChange4w, weeksSinceLastAdjust, target, delta, ruleId, notices }
 }

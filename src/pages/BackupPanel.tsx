@@ -7,16 +7,17 @@ import { createBackup, prepareBackup, restoreBackup, tableLabels, type BackupPre
 export function BackupPanel() {
   const [preview, setPreview] = useState<BackupPreview | null>(null)
   const [confirmed, setConfirmed] = useState(false)
+  const [includePhotos,setIncludePhotos]=useState(true)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const input = useRef<HTMLInputElement>(null)
   const last = useLiveQuery(() => db.rows('app_meta').get('last_backup_at'))
   return <section className="card"><h2>完整備份與還原</h2><p>包含所有紀錄、課表、進行中訓練與匯入對應，可在另一個裝置還原。</p><p className="muted">最近匯出：{typeof last?.value === 'string' ? new Date(last.value).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }) : '尚未備份'}</p>
-    <div className="button-row"><button className="primary" disabled={busy} onClick={async () => {
+    <label className="confirm-label"><input type="checkbox" checked={includePhotos} disabled={busy} onChange={e=>setIncludePhotos(e.target.checked)} />包含動作照片（預設包含；以 base64 儲存）</label><p className="muted">未含照片的備份仍可還原；整庫取代時，本機原照片會依備份內容取代或清除。</p><div className="button-row"><button className="primary" disabled={busy} onClick={async () => {
       setBusy(true); setError(''); setMessage('')
       try {
-        const backup = await createBackup()
+        const backup = await createBackup(db,new Date(),{includePhotos})
         const url = URL.createObjectURL(new Blob([backup.content], { type: 'application/json' }))
         const link = document.createElement('a'); link.href = url; link.download = backup.filename; document.body.append(link); link.click(); link.remove()
         window.setTimeout(() => URL.revokeObjectURL(url), 60000)
@@ -36,7 +37,7 @@ export function BackupPanel() {
       const file = event.target.files?.[0]; setPreview(null); setConfirmed(false); setError(''); setMessage('')
       if (!file) return
       setBusy(true)
-      try { if (file.size > 50 * 1024 * 1024) throw new Error('備份檔超過 50 MB。'); setPreview(prepareBackup(await file.text())) } catch { setError('備份檔無效：請檢查版本、資料表、數值與關聯。原資料沒有變更。') } finally { setBusy(false); event.target.value = '' }
+      try { if (file.size > 150 * 1024 * 1024) throw new Error('備份檔超過 150 MB。'); setPreview(prepareBackup(await file.text())) } catch { setError('備份檔無效：請檢查版本、資料表、數值與關聯。原資料沒有變更。') } finally { setBusy(false); event.target.value = '' }
     }} />
     {preview && <div className="import-preview"><h3>還原預覽</h3><p>備份時間：{new Date(preview.exportedAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}</p><dl>{preview.counts.map(row => <div key={row.name}><dt>{tableLabels[row.name]}</dt><dd>{row.count} 筆</dd></div>)}</dl><label className="confirm-label"><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />我了解還原將整庫取代目前資料，包含進行中訓練。</label><button className="danger" disabled={busy || !confirmed} onClick={async () => {
       setBusy(true); setError('')

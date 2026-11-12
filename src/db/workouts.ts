@@ -1,5 +1,6 @@
 import { db, type FitnessDB } from './index'
 import { schemas, type Row } from './schema'
+import { extraPlans, extraAlreadyUsed, type DayType } from '../lib/rules/extra'
 import { entryTarget } from '../lib/rules/workout'
 import { taipeiDate } from '../lib/time'
 
@@ -15,16 +16,28 @@ export async function mutateDraft(id: string, mutate: (draft: Draft) => void, da
     await database.rows('workout_drafts').put(schemas.workout_drafts.parse(draft))
   })
 }
-export async function startWorkout(weekId: string, day: 'push' | 'pull', database: FitnessDB = db, date = taipeiDate()) {
+export async function startWorkout(weekId: string, day: DayType, database: FitnessDB = db, date = taipeiDate()) {
   return database.transaction('rw', database.tables, async () => {
     const current = await database.rows('workout_drafts').toCollection().first()
     if (current) return current.id
+    const allSessions = await database.rows('workout_sessions').toArray()
+    if(day==='extra') {
+      if(extraAlreadyUsed(allSessions,weekId,date))throw new Error('本週已開始或完成一次補量日，最多一次；可從歷史接續或查看。')
+      const week=await database.rows('program_weeks').get(weekId)
+      if(!week)throw new Error('找不到訓練週次。')
+      const existing=await database.rows('planned_exercises').where('program_week_id').equals(weekId).toArray()
+      if(!existing.some(p=>p.day_type==='extra')){
+        const rows=extraPlans(weekId,await database.rows('exercises').toArray(),Array.from({length:6},()=>crypto.randomUUID()))
+        await database.rows('planned_exercises').bulkAdd(rows)
+        for(const row of rows)await database.rows('plan_changes').add({id:crypto.randomUUID(),planned_exercise_id:row.id,change:{scope:'extra_setup',before:null,after:row},applied_at:new Date().toISOString()})
+      }
+    }
     const plans = (await database.rows('planned_exercises').where('program_week_id').equals(weekId).toArray()).filter(p => p.day_type === day && !p.is_paused).sort((a, b) => a.order_no - b.order_no)
     if (!plans.length) throw new Error('這個週次沒有可用課表。')
     const exercises = await database.rows('exercises').toArray()
     const sessions = (await database.rows('workout_sessions').toArray()).filter(s => s.date <= date).sort((a, b) => b.date.localeCompare(a.date) || (b.started_at ?? '').localeCompare(a.started_at ?? ''))
     const allSets = await database.rows('workout_sets').toArray()
-    const latestSets = allSets.filter(s => sessions.some(session => session.id === s.session_id)).sort((a, b) => sessions.findIndex(s => s.id === a.session_id) - sessions.findIndex(s => s.id === b.session_id))
+    const latestSets = allSets.filter(s => sessions.some(session => session.id === s.session_id)).sort((a, b) => sessions.findIndex(s => s.id === a.session_id) - sessions.findIndex(s => s.id === b.session_id) || b.set_no-a.set_no)
     const metric = await database.rows('body_metrics').where('date').belowOrEqual(date).last()
     const session = schemas.workout_sessions.parse({ id: crypto.randomUUID(), started_at: new Date().toISOString(), program_week_id: weekId, day_type: day, date, completed: false, bodyweight_kg: metric?.weight_kg ?? null })
     const items = plans.map(plan => {

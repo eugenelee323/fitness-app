@@ -30,10 +30,12 @@ export const templates = {
   N5: '距上次熱量調整 {weeks} 週，未滿 2 週，維持觀察。',
   N6: '目標熱量不足以保留蛋白質與脂肪，請先檢查營養目標，暫不調整。',
   'N-no-target': '尚無當日生效的營養目標，請先匯入個人資料。',
-  'N-no-weight': '體重資料不足；每週至少記錄 4 天，才能比較 7 日平均。',
+  'N-no-weight': '每週體重紀錄不足；請固定週日量測，缺週不當作零或跨週補值。',
   'N-future': '已有尚未生效的熱量調整，先觀察，不重複調整。',
   'N-target': '每日熱量由 {before} 調整為 {after} kcal；蛋白質 {protein} g、脂肪 {fat} g 維持，碳水改為 {carbs} g（差額以每克 4 kcal 換算，四捨五入至整克）。',
   P1: '今日蛋白質還差 {remaining} g，可補充乳清、茶葉蛋或優格。',
+  'EX-pull': '補量日與已記錄拉日可能間隔少於 48 小時，請評估背部與手臂恢復；仍可選擇繼續。',
+  'EX-push': '補量日排在推日前一天，可能影響胸、肩、三頭恢復；仍可選擇繼續。',
   USER_EDIT: '使用者修改：{name} 的{field}由 {before} 調整為 {after}。',
 } as const
 export type RuleId = keyof typeof templates

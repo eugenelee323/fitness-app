@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Row } from '../../db/schema'
-import { adjustedNutrition, calendarDate, nutritionDay, nutritionEffectiveDate, nutritionWeek, proteinReminder, scaleNutrients, sumNutrients, targetForDate, weekDates, weightAverage, type NutritionInput } from './nutrition'
+import { adjustedNutrition, calendarDate, nutritionDay, nutritionEffectiveDate, nutritionWeek, proteinReminder, scaleNutrients, sumNutrients, targetForDate, weekDates, weeklyMeasurement, type NutritionInput } from './nutrition'
 
 // 僅使用合成資料；固定 UUID 方便比對。
 const uid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`
@@ -62,13 +62,13 @@ describe('飲食純函式', () => {
     expect(proteinReminder(at('2026-11-10T13:00:00Z'), '2026-11-10', 29.9)).toBe(false)
     expect(proteinReminder(at('2026-11-10T13:00:00Z'), '2026-11-10', null)).toBe(false)
   })
-  it('日期、週次與 7 日平均體重', () => {
+  it('日期、週次與每週最後一筆體重', () => {
     expect(calendarDate('2026-11-30', 1)).toBe('2026-12-01')
     expect(weekDates(1)).toEqual(['2026-11-09', '2026-11-10', '2026-11-11', '2026-11-12', '2026-11-13', '2026-11-14', '2026-11-15'])
     const metrics = weights([80])
-    expect(weightAverage(metrics, '2026-11-15')).toBe(80)
-    expect(weightAverage(metrics.slice(0, 3), '2026-11-15')).toBeNull()
-    expect(weightAverage(metrics.map(m => ({ ...m, weight_kg: m.date < '2026-11-13' ? null : 81 })), '2026-11-15')).toBeNull()
+    expect(weeklyMeasurement(metrics, '2026-11-15')?.weight_kg).toBe(80)
+    expect(weeklyMeasurement(metrics.slice(0, 3), '2026-11-15')?.weight_kg).toBe(80)
+    expect(weeklyMeasurement(metrics.map(m => ({ ...m, weight_kg: m.date < '2026-11-13' ? null : 81 })), '2026-11-15')?.weight_kg).toBe(81)
   })
   it('熱量調整只改碳水，且一次最多 150 kcal', () => {
     expect(adjustedNutrition(target(), 2650)).toEqual({ kcal: 2650, protein_g: 145, carbs_g: 363, fat_g: 70 })
@@ -89,7 +89,7 @@ describe('每週熱量建議', () => {
     expect(result).toMatchObject({ delta: 0, ruleId: 'N1', recorded: 0, avgProtein: null, target: null })
     expect(result.notices.join()).toContain('低於 70%')
     expect(result.notices.join()).toContain('尚無當日生效')
-    expect(result.notices.join()).toContain('體重資料不足')
+    expect(result.notices.join()).toContain('每週體重紀錄不足')
   })
   it('連續 2 週增重 < 0.1 kg 時建議 +150 kcal', () => {
     const result = nutritionWeek({ ...weekLog(3), nutritionTargets: [target()], bodyMetrics: weights([80, 80.05, 80.1]) }, 3, today)

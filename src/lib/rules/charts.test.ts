@@ -6,33 +6,26 @@ import { nutritionFixture, target } from '../../test/nutritionFixture'
 import { aggregateWeek } from './weekly'
 import type { Row } from '../../db/schema'
 const weights=(gain:number):Row<'body_metrics'>[]=>[1,2,3].flatMap(no=>weekDates(no).map(date=>({id:fixtureId(),date,weight_kg:60+(no-1)*gain})))
-describe('7 日平均與共用週變化',()=>{
-  it.each([[.15,'target'],[.25,'target'],[.1,'below'],[.3,'above']] as const)('每週 %s kg 的目標範圍邊界', (gain,status)=>{
-    const result=bodySummary(weights(gain),'2026-11-29')
-    expect(result.status).toBe(status);expect(result.change).toBe(gain);expect(result.weeklyGains).toEqual([gain,gain]);expect(result.count).toBe(7)
-  })
-  it('不足四筆不計算；缺其中一週不假設為零，腰圍比較四週前最後一筆',()=>{
-    expect(bodySummary([], '2026-11-29')).toMatchObject({status:'unknown',change:null,count:0,waistChange4w:null})
-    const data=weights(.2)
-    expect(bodySummary(data.slice(-3),'2026-11-29').weightAverages[2]).toBeNull()
-    expect(bodySummary(data.slice(-4),'2026-11-29').weightAverages[2]).toBeCloseTo(60.4)
-    expect(bodySummary(data.slice(7),'2026-11-29').weeklyGains).toEqual([.2])
-    data.push({id:fixtureId(),date:'2026-11-29',waist_cm:82},{id:fixtureId(),date:'2026-11-28',waist_cm:81},{id:fixtureId(),date:'2026-11-01',waist_cm:79},{id:fixtureId(),date:'2026-10-31',waist_cm:78})
-    expect(bodySummary(data,'2026-11-29').waistChange4w).toBe(3)
-    const input={...nutritionFixture(),bodyMetrics:data}
-    const report=nutritionWeek(input,3,'2026-11-29')
-    expect(report.weightAverages).toEqual(bodySummary(data,'2026-11-29').weightAverages)
-    expect(report.weeklyGains).toEqual([.2,.2]);expect(report.delta).toBe(-150)
-  })
-  it('進行中週也比較連續不重疊的 7 日視窗，忽略未到日期',()=>{
-    const data=weights(.2); const end='2026-11-25'
-    const summary=bodySummary(data,end)
-    expect(nutritionWeek({...nutritionFixture(),bodyMetrics:data},3,end).weeklyGains).toEqual(summary.weeklyGains)
-    expect(bodyTrends(data,end,7)).toHaveLength(7)
-    expect(bodyTrends(data,end,7).at(-1)?.average).toEqual(summary.weightAverages[2])
-    expect(bodyTrends([],end)[0]).toMatchObject({weight:null,average:null,waist:null})
+describe('每週量測與共用週變化',()=>{
+  it.each([[.15,'target'],[.25,'target'],[.1,'below'],[.3,'above']] as const)('每週 %s kg 的目標邊界',(gain,status)=>{const result=bodySummary(weights(gain),'2026-11-29');expect(result.status).toBe(status);expect(result.change).toBe(gain);expect(result.weeklyGains).toEqual([gain,gain])})
+  it('一週一筆即可；同週只取最後一筆、缺週不跨週補值',()=>{
+    const data:Row<'body_metrics'>[]=[{id:fixtureId(),date:'2026-11-15',weight_kg:60},{id:fixtureId(),date:'2026-11-22',weight_kg:60.05},{id:fixtureId(),date:'2026-11-23',weight_kg:80},{id:fixtureId(),date:'2026-11-29',weight_kg:60.1,waist_cm:82},{id:fixtureId(),date:'2026-11-01',weight_kg:59,waist_cm:80}]
+    const summary=bodySummary(data,'2026-11-29');expect(summary.weeklyWeights).toEqual([60,60.05,60.1]);expect(summary.weeklyGains).toEqual([.05,.05]);expect(summary.waistChange4w).toBe(2)
+    expect(nutritionWeek({...nutritionFixture(),bodyMetrics:data},3,'2026-11-29').delta).toBe(-150)
+    const onlyWeekly=data.filter(m=>m.date!=='2026-11-23').map(m=>({...m,waist_cm:null}))
+    expect(nutritionWeek({...nutritionFixture(),bodyMetrics:onlyWeekly},3,'2026-11-29').delta).toBe(150)
+    onlyWeekly.find(m=>m.date==='2026-11-29')!.weight_kg=60.5
+    expect(nutritionWeek({...nutritionFixture(),bodyMetrics:onlyWeekly},3,'2026-11-29').delta).toBe(-150)
+    expect(bodySummary(data.filter(m=>m.date!=='2026-11-22'),'2026-11-29').weeklyGains).toEqual([])
+    expect(bodySummary([],'2026-11-29')).toMatchObject({change:null,status:'unknown',waistChange4w:null})
+    expect(bodyTrends(data,'2026-11-29').at(-1)).toMatchObject({date:'2026-11-23',recordedAt:'2026-11-29',weight:60.1,waist:82})
+    expect(bodyTrends([],'2026-11-29')[0]).toMatchObject({weight:null,waist:null,recordedAt:null})
+    expect(bodyTrends(data,'2026-11-25',7)).toHaveLength(7)
+    expect(bodyTrends(data,'2026-11-25').at(-1)?.weight).toBe(80)
+    expect(bodySummary(data,'2026-11-25').weeklyWeights[1]).toBe(60.05)
   })
 })
+
 describe('圖表與訓練、飲食原始紀錄一致',()=>{
   it('推、拉與合計容量、e1RM、有效組數一致；空週為 null',()=>{
     const input=weeklyFixture();logWeek(input,1,{only:['bench_bb'],weight:20,reps:8,day:'push'});logWeek(input,1,{only:['pullup'],weight:0,reps:8,day:'pull'});logWeek(input,2,{only:['bench_bb'],weight:25,reps:8,day:'push'})

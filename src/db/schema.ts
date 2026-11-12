@@ -6,7 +6,7 @@ const num = z.number().finite().nonnegative()
 const integer = num.int()
 const text = z.string().min(1)
 const nullable = <T extends z.ZodType>(schema: T) => schema.nullish()
-const day = z.enum(['push', 'pull'])
+const day = z.enum(['push', 'pull', 'extra'])
 const json = z.json()
 const draftEntry = z.object({ id, set_no: integer.min(1), side: z.enum(['both', 'left', 'right']), weight: z.string(), reps: z.string(), rir: integer.max(5), done: z.boolean() }).strict()
 const draftItem = z.object({ id, planned_exercise_id: id, exercise_id: id, order_no: integer.min(1), sets: integer.min(1), base_sets: integer.min(1).optional(), base_rir: integer.max(5).optional(), base_weight_kg: nullable(num), target_reps: integer.min(1).optional(), is_paused: z.boolean().optional(), rep_min: integer.min(1), rep_max: integer.min(1), target_rir: integer.max(5), target_weight_kg: nullable(num), rest_sec: integer, entries: z.array(draftEntry) }).strict()
@@ -34,6 +34,7 @@ export const schemas = {
   meal_items: z.object({ id, meal_id: id, food_id: nullable(id), name: text, grams: num, kcal: num, protein_g: num, carbs_g: num, fat_g: num, is_estimate: z.boolean().default(true), kcal_low: nullable(num), kcal_high: nullable(num) }).strict(),
   body_metrics: z.object({ id, date, weight_kg: nullable(num.positive()), waist_cm: nullable(num.positive()), bodyfat_pct: nullable(num.max(100)) }).strict(),
   workout_drafts: z.object({ id, session_id: id, items: z.array(draftItem), bodyweight: z.string(), fatigue: z.string(), sleep_h: z.string(), pains: z.array(z.object({ id, body_part: z.string(), score: z.string(), sharp: z.boolean().optional(), exercise_id: nullable(id) }).strict()), timer: z.object({ ends_at: num.nullable(), remaining_ms: num, paused: z.boolean() }).strict(), updated_at: z.iso.datetime({ offset: true }) }).strict(),
+  exercise_photos: z.object({ exercise_code: text, blob: z.instanceof(Blob).refine(b=>b.type==='image/jpeg'&&b.size>0&&b.size<=4*1024*1024,'照片須為 4 MB 以下 JPEG。'), updated_at: z.iso.datetime({offset:true}) }).strict(),
   favorite_meals: z.object({ id, name: text, meal_type: mealType, items: z.array(mealValueSchema).min(1), created_at: z.iso.datetime({ offset: true }) }).strict(),
   app_meta: z.object({ key: text, value: json }).strict(),
   import_links: z.object({ key: text, entity_id: id }).strict(),

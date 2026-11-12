@@ -1,4 +1,4 @@
-export const RULES_VERSION = '2026.11-3';
+export const RULES_VERSION = '2026.11-4';
 
 export type Muscle = 'chest' | 'back' | 'front_delt' | 'side_delt' | 'rear_delt'
   | 'biceps' | 'triceps' | 'quads' | 'hamstrings' | 'glutes';
@@ -106,7 +106,7 @@ export function dailyStatus(t: { kcal: number; proteinMin: number }, d: { kcal: 
   return kcalOk && proteinOk ? 'met' : kcalOk || proteinOk ? 'partial' : 'missed';
 }
 
-export function weeklyKcalDelta(i: { logCompleteness: number; weeklyGains: number[]; // 最近兩週，kg/週（由 7 日平均算）
+export function weeklyKcalDelta(i: { logCompleteness: number; weeklyGains: number[]; // 最近兩週，kg/週（由每週最後一筆體重計算）
   waistChange4w: number; weeksSinceLastAdjust: number }): { delta: number; ruleId: string } {
   if (i.logCompleteness < 0.7) return { delta: 0, ruleId: 'N1' };
   if (i.weeksSinceLastAdjust < 2) return { delta: 0, ruleId: 'N5' };

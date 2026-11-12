@@ -1,3 +1,7 @@
+import { ExercisePhoto } from './ExercisePhoto'
+import { dayLabels, extraMenu, extraWarnings, extraAlreadyUsed, type DayType } from '../lib/rules/extra'
+import { explain } from '../lib/explain'
+import { useClock } from '../hooks/useClock'
 import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link, useNavigate } from 'react-router-dom'
@@ -38,7 +42,7 @@ function ExerciseCard({ draft, item, exercises, alternatives, previous, run }: {
   const [alternative, setAlternative] = useState('')
   const ex = exercises.find(e => e.id === item.exercise_id)!
   const options = alternatives.filter(a => a.exercise_id === ex.id)
-  return <section className="card workout-card"><span className="eyebrow">動作 {item.order_no}</span><h2>{ex.name_zh}<small className="english">{ex.name_en}</small></h2><p>{item.sets} 組 × {item.rep_min}–{item.rep_max} 下 · RIR {item.target_rir} · 休息 {item.rest_sec} 秒</p><p className="target-weight">目標：{item.target_weight_kg == null ? '試重／沿用上次紀錄' : `${item.target_weight_kg} kg`}{ex.load_type.startsWith('dumbbell') ? '（單支）' : ex.load_type === 'bodyweight' ? '（填掛重；徒手填 0）' : ex.load_type === 'assisted' ? '（填輔助重量）' : ''}</p>
+  return <section className="card workout-card"><span className="eyebrow">動作 {item.order_no}</span><h2>{ex.name_zh}<small className="english">{ex.name_en}</small></h2><ExercisePhoto code={ex.code} name={ex.name_zh} /><p>{item.sets} 組 × {item.rep_min}–{item.rep_max} 下 · RIR {item.target_rir} · 休息 {item.rest_sec} 秒</p><p className="target-weight">目標：{item.target_weight_kg == null ? '試重／沿用上次紀錄' : `${item.target_weight_kg} kg`}{ex.load_type.startsWith('dumbbell') ? '（單支）' : ex.load_type === 'bodyweight' ? '（填掛重；徒手填 0）' : ex.load_type === 'assisted' ? '（填輔助重量）' : ''}</p>
     {ex.cues && <p className="note">{ex.cues}</p>}
     <details className="previous"><summary>上次同動作 {previous?.date ?? '尚無紀錄'}</summary>{previous && previous.sets.map(set => <p key={set.id}>第 {set.set_no} 組{{ both: '', left: ' 左', right: ' 右' }[set.side]}：{set.weight_kg} kg × {set.reps} 下 · RIR {set.rir ?? '未填'}</p>)}</details>
     {options.length > 0 && item.entries.some(e => !e.done) && <button className="secondary" onClick={() => setSelecting(!selecting)}>替換動作</button>}
@@ -70,8 +74,10 @@ function FinishForm({ draft, exercises, run }: { draft: Draft; exercises: Row<'e
   </section>
 }
 export function Training() {
+  const now=useClock()
+  const [nextPush,setNextPush]=useState('')
   const [weekId, setWeekId] = useState('')
-  const [day, setDay] = useState<'push' | 'pull' | ''>('')
+  const [day, setDay] = useState<DayType | ''>('')
   const [showFinish, setShowFinish] = useState(false)
   const [busy, setBusy] = useState(false)
   const [saving, setSaving] = useState(0)
@@ -86,11 +92,11 @@ export function Training() {
   const defaultWeek = data.weeks.find(w => w.week_no === currentWeek(data.program?.start_date ?? taipeiDate(), taipeiDate()))
   const selectedWeek = weekId || defaultWeek?.id || data.weeks[0]?.id
   const selectedDay = day || (data.sessions.some(s => s.program_week_id === selectedWeek && s.day_type === 'push' && s.completed) ? 'pull' : 'push')
-  return <><div className="page-title"><span className="eyebrow">{draft ? '你的進度會自動保留' : '依今天的狀態，自由安排'}</span><h1>{draft ? '今日訓練' : '準備開始訓練'}</h1><p>{draft ? (saving ? '正在儲存…' : error ? '請先處理下方錯誤，再繼續訓練。' : '所有變更已儲存，可安心離開再接續。') : '選擇週次與推／拉日，帶入課表目標。'}</p></div>
+  return <><div className="page-title"><span className="eyebrow">{draft ? '你的進度會自動保留' : '依今天的狀態，自由安排'}</span><h1>{draft ? '今日訓練' : '準備開始訓練'}</h1><p>{draft ? (saving ? '正在儲存…' : error ? '請先處理下方錯誤，再繼續訓練。' : '所有變更已儲存，可安心離開再接續。') : '選擇週次與推日、拉日或選填補量日。'}</p></div>
     <div className="link-row"><Link className="text-link" to="/plan">12 週計畫</Link><Link className="text-link" to="/history">訓練歷史 →</Link></div>
     {error && <p className="error sticky-error" role="alert">{error}</p>}
-    {!draft ? <section className="card"><label>訓練週次<select value={selectedWeek} onChange={e => setWeekId(e.target.value)}>{data.weeks.map(w => <option value={w.id} key={w.id}>第 {w.week_no} 週 · {w.menu} 菜單{w.is_deload ? ' · 減量週' : ''}</option>)}</select></label><fieldset className="day-picker"><legend>今日課表</legend><button aria-pressed={selectedDay === 'push'} onClick={() => setDay('push')}>推日</button><button aria-pressed={selectedDay === 'pull'} onClick={() => setDay('pull')}>拉日</button></fieldset><button className="primary full-width" disabled={busy || !selectedWeek} onClick={async () => { setBusy(true); await run(() => startWorkout(selectedWeek, selectedDay)); setBusy(false) }}>開始訓練</button><p className="muted">試重動作請先填重量；其餘欄位已預填，選 RIR 後按「完成這組」即可。</p></section> : <>
-      <p className="note">{(() => { const session = data.sessions.find(s => s.id === draft.session_id); const week = data.weeks.find(w => w.id === session?.program_week_id); return `第 ${week?.week_no ?? "—"} 週 · ${week?.menu ?? "—"} 菜單 · ${session?.day_type === "push" ? "推日" : "拉日"}${week?.is_deload ? " · 減量週" : ""}` })()}</p><RestTimer draft={draft} run={run} />
+    {!draft ? <section className="card"><label>訓練週次<select value={selectedWeek} onChange={e => setWeekId(e.target.value)}>{data.weeks.map(w => <option value={w.id} key={w.id}>第 {w.week_no} 週 · {w.menu} 菜單{w.is_deload ? ' · 減量週' : ''}</option>)}</select></label><fieldset className="day-picker"><legend>今日課表</legend><button aria-pressed={selectedDay === 'push'} onClick={() => setDay('push')}>推日</button><button aria-pressed={selectedDay === 'pull'} onClick={() => setDay('pull')}>拉日</button><button aria-pressed={selectedDay==='extra'} onClick={()=>setDay('extra')}>補量日</button></fieldset>{selectedDay==='extra'&&<><p className="note">每週最多一次，選填不練不影響完成率。18 組、RIR 2–3、休息 60–90 秒；重量沿用最近實績，首次試重。</p><details><summary>查看補量日六項動作</summary>{extraMenu.map(item=>{const ex=data.exercises.find(ex=>ex.code===item.code);return <p key={item.code}>{ex?.name_zh}／{ex?.name_en}<br />{item.sets} 組 × {item.min}–{item.max} 下 · RIR 2–3 · 休息 {item.rest} 秒</p>})}</details><label>預計下次推日日期（選填）<input type="date" value={nextPush} onChange={e=>setNextPush(e.target.value)} /></label>{extraAlreadyUsed(data.sessions,selectedWeek,taipeiDate(new Date(now)))&&<p className="error">本週已使用一次補量日，請至歷史查看。</p>}{extraWarnings(data.sessions,now,nextPush).map(rule=><p className="note" key={rule}>{explain(rule,{})}</p>)}</>}<button className="primary full-width" disabled={busy || !selectedWeek || selectedDay==='extra'&&extraAlreadyUsed(data.sessions,selectedWeek,taipeiDate(new Date(now)))} onClick={async () => { if(selectedDay==='extra'){const warnings=extraWarnings(data.sessions,now,nextPush);if(warnings.length&&!window.confirm(warnings.map(rule=>explain(rule,{})).join('\n')+'\n仍要開始補量日？'))return} setBusy(true); await run(() => startWorkout(selectedWeek, selectedDay)); setBusy(false) }}>開始訓練</button><p className="muted">試重動作請先填重量；其餘欄位已預填，選 RIR 後按「完成這組」即可。</p></section> : <>
+      <p className="note">{(() => { const session = data.sessions.find(s => s.id === draft.session_id); const week = data.weeks.find(w => w.id === session?.program_week_id); return `第 ${week?.week_no ?? "—"} 週 · ${week?.menu ?? "—"} 菜單 · ${session ? dayLabels[session.day_type] : "—"}${week?.is_deload ? " · 減量週" : ""}` })()}</p><RestTimer draft={draft} run={run} />
       {draft.items.map(item => {
         const previousSessions = data.sessions.filter(s => s.id !== draft.session_id && data.sets.some(set => set.session_id === s.id && set.exercise_id === item.exercise_id)).sort((a, b) => b.date.localeCompare(a.date) || (b.started_at ?? '').localeCompare(a.started_at ?? ''))
         const previous = previousSessions[0]

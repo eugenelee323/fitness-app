@@ -79,6 +79,7 @@ export async function decideRecommendation(id: string, status: 'accepted' | 'rej
     const rec = await database.rows('recommendations').get(id)
     const analysis = rec && await database.rows('weekly_analyses').get(rec.analysis_id)
     if (!rec || !analysis) throw new Error('找不到建議。')
+    if (analysis.rules_version !== RULES_VERSION) throw new Error('計算規則已更新，請重新結算後再處理建議。')
     if (analysis.applied_at) throw new Error('此週課表已產生，不能再次更改決定。')
     const input = await loadWeeklyInput(database)
     if (!input || sourceFingerprint(input) !== analysis.source_fingerprint) throw new Error('結算後資料已變動，請重新結算後再處理建議。')
@@ -120,6 +121,7 @@ export async function applyRecommendations(id: string, database: FitnessDB = db,
     const analysis = await database.rows('weekly_analyses').get(id)
     if (!analysis) throw new Error('找不到每週分析。')
     if (analysis.applied_at) return
+    if (analysis.rules_version !== RULES_VERSION) throw new Error('計算規則已更新，請重新結算後再套用。')
     const metrics = metricsSchema.parse(analysis.metrics)
 
     const recs = await database.rows('recommendations').where('analysis_id').equals(id).toArray()

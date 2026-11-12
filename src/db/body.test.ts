@@ -5,7 +5,7 @@ import { fixtureId } from '../test/weeklyFixture'
 import { bodySummary } from '../lib/rules/nutrition'
 const database=new FitnessDB('body-'+fixtureId())
 afterEach(async()=>{await database.rows('body_metrics').clear()})
-it('首頁快速體重、完整編輯、同日 upsert 保留腰圍與體脂，刪除後平均更新',async()=>{
+it('首頁快速體重、完整編輯、同日 upsert 保留腰圍與體脂，刪除後每週最後一筆更新',async()=>{
   const id=await saveBodyMetric({date:'2026-11-10',weight_kg:60,waist_cm:80},database)
   await database.rows('body_metrics').update(id,{bodyfat_pct:20})
   await saveBodyMetric({date:'2026-11-10',weight_kg:61},database)
@@ -15,9 +15,9 @@ it('首頁快速體重、完整編輯、同日 upsert 保留腰圍與體脂，�
   expect(await database.rows('body_metrics').count()).toBe(1)
   await expect(saveBodyMetric({date:row.date,weight_kg:62},database,row)).rejects.toThrow('已被修改')
   for(const date of ['2026-11-11','2026-11-12','2026-11-13'])await saveBodyMetric({date,weight_kg:60},database)
-  expect(bodySummary(await database.rows('body_metrics').toArray(),'2026-11-13').weightAverages[2]).toBe(60)
+  expect(bodySummary(await database.rows('body_metrics').toArray(),'2026-11-13').weeklyWeights[2]).toBe(60)
   await deleteBodyMetric(id,database)
-  expect(bodySummary(await database.rows('body_metrics').toArray(),'2026-11-13').weightAverages[2]).toBeNull()
+  expect(bodySummary(await database.rows('body_metrics').toArray(),'2026-11-13').weeklyWeights[2]).toBe(60)
   await expect(saveBodyMetric({date:row.date,weight_kg:62},database,row)).rejects.toThrow('已被修改')
 })
 it('可只記腰圍；拒絕空白、負值、無效日期及 NaN，原資料不受影響',async()=>{

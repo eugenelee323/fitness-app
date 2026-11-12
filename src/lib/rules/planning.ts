@@ -28,7 +28,7 @@ export function latestExercise(input: WeeklyInput, weekNo: number, exId: string)
   return exerciseHistory(input, weekNo)[exId] ?? null
 }
 export function safetyWeek(rows: Row<'planned_exercises'>[], exercises: Row<'exercises'>[]) {
-  for (const day of ['push', 'pull'] as const) {
+  for (const day of ['push', 'pull', 'extra'] as const) {
     const daily = rows.filter(p => p.day_type === day && !p.is_paused)
     if (daily.filter(p => exercises.find(e => e.id === p.exercise_id)?.loads_lower_back).length > 1) throw new Error('同一天最多一個壓下背動作。')
     if (estimatedSeconds(daily, exercises) > 7200) throw new Error('計畫估計超過單日 120 分鐘，請減少組數。')
@@ -54,9 +54,9 @@ export function planRecommendations(input: WeeklyInput, metrics: WeekMetrics, fo
   const source = input.weeks.find(w => w.week_no === metrics.weekNo)!
   const next = input.weeks.find(w => w.week_no === metrics.weekNo + 1)
   if (!next || !metrics.sessionCount) return []
-  const rows = input.plans.filter(p => p.program_week_id === next.id).sort((a, b) => a.order_no - b.order_no)
+  const rows = input.plans.filter(p => p.program_week_id === next.id && p.day_type !== 'extra').sort((a, b) => a.order_no - b.order_no)
   const knownMetrics = exerciseHistory(input, metrics.weekNo)
-  const currentRows = input.plans.filter(p => p.program_week_id === source.id)
+  const currentRows = input.plans.filter(p => p.program_week_id === source.id && p.day_type !== 'extra')
   const regular = rows.map(row => {
     const current = currentRows.find(p => p.day_type === row.day_type && p.order_no === row.order_no)
     return { ...row, sets: current?.base_sets ?? current?.sets ?? row.base_sets ?? row.sets, target_rir: current?.base_rir ?? row.base_rir ?? row.target_rir }

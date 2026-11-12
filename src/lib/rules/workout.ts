@@ -42,7 +42,7 @@ export function weeklyCompletion(plans: Row<'planned_exercises'>[], sets: Row<'w
   let done = 0
   let target = 0
   for (const plan of plans) {
-    if (plan.is_paused) continue
+    if (plan.is_paused || plan.day_type==='extra'&&!sessions.some(session=>session.program_week_id===plan.program_week_id&&session.day_type==='extra'&&sets.some(set=>set.session_id===session.id))) continue
     target += plan.sets
     const rows = sets.filter(s => ids.has(s.session_id) && s.planned_exercise_id === plan.id && s.set_no <= plan.sets)
     const numbers = new Set(rows.map(s => s.set_no))

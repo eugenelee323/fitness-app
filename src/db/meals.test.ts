@@ -46,9 +46,9 @@ describe('餐點儲存、常用與備份',()=>{
   })
   it('版本 4 原地升級到 5，保留舊餐點並新增常用表',async()=>{
     const name=database.name; database.close()
-    const old=new Dexie(name); const {favorite_meals:ignored,...oldStores}=stores; void ignored
+    const old=new Dexie(name); const {favorite_meals:ignored,exercise_photos:ignoredPhotos,...oldStores}=stores; void [ignored,ignoredPhotos]
     old.version(4).stores(oldStores); await old.table('meals').add(schemas.meals.parse({id:fixtureId(),date:meal.date,meal_type:'lunch'})); old.close()
-    database=new FitnessDB(name); await database.open(); expect(database.verno).toBe(5); expect(await database.rows('meals').count()).toBe(1); expect(await database.rows('favorite_meals').count()).toBe(0)
+    database=new FitnessDB(name); await database.open(); expect(database.verno).toBe(6); expect(await database.rows('meals').count()).toBe(1); expect(await database.rows('favorite_meals').count()).toBe(0)
   })
 })
 async function prepareNutrition() {
@@ -104,7 +104,7 @@ it('營養套用中途失敗時，新增目標、稽核、套用狀態全部回�
   expect(await readSnapshot(database)).toEqual(before)
 })
 
-it('修改身體數據使舊建議失效，重新結算後用新七日平均判斷熱量', async () => {
+it('修改身體數據使舊建議失效，重新結算後用新每週體重判斷熱量', async () => {
   const {id,rec,food}=await prepareNutrition()
   for(const row of food.bodyMetrics!.filter(r=>r.date>='2026-11-23')) await saveBodyMetric({date:row.date,weight_kg:61},database)
   await expect(decideRecommendation(rec.id,'accepted',undefined,database)).rejects.toThrow('資料已變動')
