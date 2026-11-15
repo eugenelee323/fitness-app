@@ -39,10 +39,12 @@ export function summarizeWorkout(sets: Row<'workout_sets'>[], exercises: Row<'ex
 /** 單側左右各半組；同一計畫格重複訓練只計入一次，最高為 100%。 */
 export function weeklyCompletion(plans: Row<'planned_exercises'>[], sets: Row<'workout_sets'>[], sessions: Row<'workout_sessions'>[]) {
   const ids = new Set(sessions.map(s => s.id))
+  const extraWithSets = sessions.filter(s=>s.day_type==='extra'&&sets.some(set=>set.session_id===s.id))
+  const assignedExtra = new Set(plans.map(p=>p.extra_session_id).filter(Boolean))
   let done = 0
   let target = 0
   for (const plan of plans) {
-    if (plan.is_paused || plan.day_type==='extra'&&!sessions.some(session=>session.program_week_id===plan.program_week_id&&session.day_type==='extra'&&sets.some(set=>set.session_id===session.id))) continue
+    if (plan.is_paused || plan.day_type==='extra'&&!extraWithSets.some(s=>s.program_week_id===plan.program_week_id&&(plan.extra_session_id ? plan.extra_session_id===s.id : !assignedExtra.has(s.id)))) continue
     target += plan.sets
     const rows = sets.filter(s => ids.has(s.session_id) && s.planned_exercise_id === plan.id && s.set_no <= plan.sets)
     const numbers = new Set(rows.map(s => s.set_no))

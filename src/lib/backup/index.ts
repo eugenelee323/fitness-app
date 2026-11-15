@@ -1,3 +1,4 @@
+import { migrateWorkoutRecords } from '../../db/corrections'
 import Dexie from 'dexie'
 import { backupBodyPhotoSchema, backupPhotoSchema, photoBlob, photoDataUrl } from '../photos'
 import { z } from 'zod'
@@ -8,7 +9,7 @@ import { RULES_VERSION } from '../rules'
 import { taipeiDate } from '../time'
 
 export type Snapshot = Record<TableName, Record<string, unknown>[]>
-const baseTables = tableNames.filter(n => !['workout_drafts', 'app_meta', 'import_links', 'favorite_meals', 'exercise_photos', 'body_photos'].includes(n))
+const baseTables = tableNames.filter(n => !['workout_drafts', 'app_meta', 'import_links', 'favorite_meals', 'exercise_photos', 'body_photos', 'inbody_records'].includes(n))
 const envelope = z.object({ version: z.literal(1), exportedAt: z.iso.datetime({ offset: true }), rulesVersion: z.string().min(1), tables: z.record(z.string(), z.array(z.record(z.string(), z.unknown()))) }).strict()
 
 export function validateSnapshot(tables: Snapshot) {
@@ -19,7 +20,7 @@ export function validateSnapshot(tables: Snapshot) {
   }
   for (const name of tableNames) {
     for (const row of tables[name]) { if(name==='exercise_photos'||name==='body_photos'){(name==='body_photos'?backupBodyPhotoSchema:backupPhotoSchema).parse(row);photoBlob(row.blob as string)}else schemas[name].parse(row) }
-    const keys = tables[name].map(r => name === 'body_photos' ? r.date : name === 'exercise_photos' ? r.exercise_code : name === 'exercise_alternatives' ? `${r.exercise_id}:${r.alt_exercise_id}` : name === 'app_meta' || name === 'import_links' ? r.key : r.id)
+    const keys = tables[name].map(r => name === 'body_photos' || name === 'inbody_records' ? r.date : name === 'exercise_photos' ? r.exercise_code : name === 'exercise_alternatives' ? `${r.exercise_id}:${r.alt_exercise_id}` : name === 'app_meta' || name === 'import_links' ? r.key : r.id)
     if (new Set(keys).size !== keys.length) throw new Error(`${name} 含重複主鍵`)
   }
   const unique = (name: TableName, fields: string[]) => {
@@ -71,7 +72,7 @@ export function prepareBackup(content: string) {
   tables.program_weeks = normalized.weeks
   tables.planned_exercises = normalized.plans
   validateSnapshot(tables)
-  return { ...parsed.data, tables, counts: tableNames.map(name => ({ name, count: tables[name].length })) }
+  return { ...parsed.data, legacyWorkoutMigration: !('inbody_records' in input), tables, counts: tableNames.map(name => ({ name, count: tables[name].length })) }
 }
 export type BackupPreview = ReturnType<typeof prepareBackup>
 export async function createBackup(database: FitnessDB = db, now = new Date(), options: {includePhotos?:boolean} = {}) {
@@ -84,9 +85,10 @@ export async function createBackup(database: FitnessDB = db, now = new Date(), o
 }
 export async function restoreBackup(preview: BackupPreview, database: FitnessDB = db) {
   validateSnapshot(preview.tables)
-  await database.transaction('rw', database.tables, async () => {
+  await database.transaction('rw', database.tables, async tx => {
     for (const name of tableNames) await database.table(name).clear()
     for (const name of tableNames) if (preview.tables[name].length) await database.table(name).bulkAdd(name==='exercise_photos'||name==='body_photos'?preview.tables[name].map(row=>({...row,blob:photoBlob(row.blob as string)})):preview.tables[name])
+    if (preview.legacyWorkoutMigration) await migrateWorkoutRecords(tx)
   })
 }
-export const tableLabels: Record<TableName, string> = { body_photos:'體態照', exercise_photos: '動作照片', favorite_meals: '常用餐點', user_profiles: '個人資料', nutrition_targets: '營養目標', exercises: '動作庫', exercise_alternatives: '替代動作', programs: '訓練計畫', program_weeks: '計畫週次', planned_exercises: '計畫動作', workout_sessions: '訓練紀錄', workout_sets: '實際組數', pain_reports: '疼痛紀錄', weekly_analyses: '每週分析', recommendations: '建議', plan_changes: '課表變更', foods: '食物', meals: '餐點', meal_items: '餐點項目', body_metrics: '身體數據', workout_drafts: '進行中訓練', app_meta: '本機設定', import_links: '匯入對應' }
+export const tableLabels: Record<TableName, string> = { inbody_records:'InBody 紀錄', body_photos:'體態照', exercise_photos: '動作照片', favorite_meals: '常用餐點', user_profiles: '個人資料', nutrition_targets: '營養目標', exercises: '動作庫', exercise_alternatives: '替代動作', programs: '訓練計畫', program_weeks: '計畫週次', planned_exercises: '計畫動作', workout_sessions: '訓練紀錄', workout_sets: '實際組數', pain_reports: '疼痛紀錄', weekly_analyses: '每週分析', recommendations: '建議', plan_changes: '課表變更', foods: '食物', meals: '餐點', meal_items: '餐點項目', body_metrics: '身體數據', workout_drafts: '進行中訓練', app_meta: '本機設定', import_links: '匯入對應' }

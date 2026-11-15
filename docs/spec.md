@@ -16,7 +16,7 @@
 | 睡眠 | 小時 | 每次訓練前一晚 |
 | 疼痛 | 部位 ＋ 0–10 分 | 每次訓練 |
 | 完成 | 是 / 否 | 每次訓練 |
-| 體重、腰圍 | kg、cm | 每週日早上起床如廁後、進食前各量一次 |
+| InBody | 體重、骨骼肌、體脂肪 kg；體脂率 %；內臟脂肪、BMR 與備註選填 | 建議固定早上空腹、運動前，用同一台機器測量，數據才能比較。 |
 | 飲食 | 照片 → 熱量、三大營養素 | 每餐 |
 
 | 指標 | 算法 |
@@ -34,14 +34,14 @@
 
 **單次訓練腰部確認**：與下次課表建議分開。包含壓下背動作時，開始前確認 0–10 分（快捷 0／2／5）。BACK0：0 分照原課表。BACK1：1–2 分，目標重量乘 0.9 後向下取器材級距，未知重量維持試重。BACK3：3–10 分，未完成組換成俯臥腿彎舉（leg_curl_lying），沿用其最近一筆重量，缺資料就試重。練中可重新評分，調整以原目標為基準，可手動改回。已完成組保留；調整寫入 plan_changes，適用範圍為當次草稿。
 
-由上到下判斷，符合第一條就停；一次只改一個變數（重量或組數）。
+由上到下判斷，符合第一條就停；一次只改一個變數（重量或組數）。基準重量取最重工作組，使用同重量各組的次數及 RIR 判斷。較輕的遞增工作組只計入完成組數。補量日實績提供上次紀錄，但不作為加重依據。
 
 | 優先 | 條件 | 建議 |
 | --- | --- | --- |
 | 1 | 該動作相關部位疼痛 ≥ 4 分，或刺痛 | 停止該動作，改替代動作；連續 2 次就提示就醫 |
 | 2 | 疼痛 1–3 分 | 重量 −10%，觀察下次 |
-| 3 | 每組都超過次數上限 2 下以上 | 加重 1–2 級（啞鈴等級距大的器材取 1 級） |
-| 4 | 每組都做到上限，且 RIR ≥ 1 | 加重 1 級 |
+| 3 | 最重工作組都超過次數上限 2 下以上 | 加重 1–2 級（啞鈴等級距大的器材取 1 級） |
+| 4 | 最重工作組都做到上限，且 RIR ≥ 1 | 加重 1 級 |
 | 5 | 複合動作出現 RIR 0（力竭） | 重量不變，提醒留 1–2 下 |
 | 6 | 在範圍內但未達上限 | 重量不變，目標每組 +1 下 |
 | 7 | 任一組低於下限 | 重量不變；連續 2 次 → 重量 −5～10% |
@@ -62,7 +62,7 @@
 | --- | --- |
 | 該肌群動作都進步，平均疲勞 ≤ 6 | 依階段計畫 +1 組（未達上限時） |
 | 該肌群停滯 2 週，疲勞 ≤ 6 | +1 組；已達上限就等下次菜單輪替 |
-| 該肌群退步，或平均疲勞 ≥ 7 | 組數 −20～30% |
+| 該肌群退步，或該肌群有疲勞資料的訓練平均疲勞 ≥ 7，且本週至少兩次訓練有填疲勞 | M3：目標減少約 25%，每個適用動作最多減 1 組、至少保留 2 組。首次記錄的動作不得減組。由疲勞觸發時，只能減到曾高疲勞且該肌群有實績的日別。 |
 | 完成率 < 80% | 不加組，先找原因（時間不夠？太累？） |
 
 **減量觸發（任一成立就建議下週減量）**
@@ -97,21 +97,18 @@
 
 **每週體重與熱量調整**
 
-- 每週記錄一次體重與腰圍，固定週日早上起床如廁後、進食前測量。週界線為 Asia/Taipei 的週一至週日；同一週多筆取最後一筆，不刪除既有每日紀錄、不計 7 日平均。目標每週 +0.15～0.25 kg。
-- 相鄰兩週採用體重相減得到週增重；缺任何一週就不跨週補值。連續 2 次週變化需有相鄰 3 週紀錄。腰圍用本週最後一筆減 4 週前最後一筆，任一缺值不推算。
-- 紀錄完整率 < 70%：不調熱量，先提醒補紀錄。
-- 連續 2 週週增重 < 0.1 kg：每日 +150 kcal。
-- 單週增重 > 0.35 kg/週，或腰圍 4 週 +2 cm：每日 −150 kcal。
-- 蛋白質週平均 < 130 g：只提醒補蛋白質，不改熱量。
-- 熱量一次最多調 150 kcal，調整後至少觀察 2 週。
-
+- 以截止日前最近一次 InBody 為基準，選擇間隔 10–21 天且最接近 14 天的一筆比較。歷史體重、腰圍及體態照保留可查閱。
+- N1：飲食完整率 < 70% 時維持。N5：距上次調整 < 14 天或已有待生效調整時維持。
+- N3：體脂肪增加 ≥ 0.5 kg 且骨骼肌增加 < 0.2 kg，每日 −150 kcal。
+- N2：體重與骨骼肌增加均 < 0.2 kg 且體脂肪未下降，每日 +150 kcal。
+- N0：其餘情況（含資料不足）維持。蛋白質平均低於 130 g 時另提示。原因應寫明兩次量測日期與數字。
+- 最新 InBody 有基礎代謝時，每日 TDEE = InBody BMR × 1.2 ＋ 300 kcal × 當週訓練次數 ÷ 7；缺值沿用原公式。
 
 **補量日（選填，每週最多一次）**
 
 - day_type = extra。訓練頁與推日、拉日並列，最多每個台北日曆週一次；同一計畫週也最多一次。進行中可接續，結束後不可重複開始。
-- 固定課表：上斜啞鈴臥推 3×8–12、坐姿繩索划船 3×10–12、側平舉機 4×12–15、繩索彎舉 3×10–12、繩索三頭下壓 3×10–12、臉拉 2×12–15，共 18 組；RIR 2–3（預填 2），前兩項休息 90 秒，其餘 60 秒。
-- 重量沿用該動作最近一次實績，首次試重；第一次選擇開始才建立該週的六筆 planned_exercises，並寫 plan_changes。補量日模板不由下週訓練建議自動加減組，減量週仍由使用者自行選擇是否練。
-- 未練不計入完成率分母；記錄第一組後分母增加 18 組，所有實際組數、容量、e1RM 與肌群有效組數均納入該週統計。
+- 新補量日從空白開始。可按部位與中英文名稱查找動作，填組數、次數、重量；空白重量與次數預設採用該動作最近一次實績。可複製上次補量日的動作及各組重量、次數。涉及壓下背動作時先確認腰部。
+- 選填不練不計分母；記錄第一組後分母加入該次自選計畫組數。有效組數、容量與 e1RM 照常納入週統計。舊固定補量紀錄維持原課表及完成率口徑。
 - 開始前檢查與已知拉日的間隔：少於 48 小時提醒；舊紀錄只有日期時，前後 2 個日曆日保守提醒可能不足 48 小時。提供「預計下次推日日期（選填）」；填隔天或已有隔天推日紀錄時提醒。提醒可取消或明確選擇繼續，不阻擋訓練。
 
 ## 5. 建議輸出格式與實例
@@ -150,11 +147,11 @@ MVP 先做「記錄 → 自動計算 → 每週建議 → 確認套用」完整�
 | 飲食 | 每日熱量、蛋白質進度條與達標判定 | MVP |
 | 飲食 | 常用餐點（一鍵帶入常吃的便當、乳清） | MVP |
 | 飲食 | APP 內拍照 AI 估算、營養標示辨識 | 後續（需 AI 金鑰與後端） |
-| 身體 | 每週體重與腰圍、每週最後一筆趨勢 | MVP |
+| 身體 | InBody 手動與貼上輸入、差值、骨骼肌與體脂肪趨勢，另可瀏覽歷史量測及照片 | MVP |
 | 資料 | 全部資料匯出 / 匯入 JSON 備份、匯出 CSV、每 7 天提醒備份 | MVP |
 | 資料 | 第一次開啟匯入個人初始資料（my-data.json） | MVP |
 | 其他 | 雲端同步、多裝置 | 後續（需資料庫帳號） |
-| 其他 | 推播提醒、步數同步、InBody、進度照 | 後續 |
+| 其他 | 推播提醒、步數同步 | 後續 |
 
 ## 7. 頁面規格
 
@@ -164,7 +161,7 @@ MVP 先做「記錄 → 自動計算 → 每週建議 → 確認套用」完整�
 
 | 頁面 | 顯示內容 | 主要操作 |
 | --- | --- | --- |
-| 1. 首頁儀表板 | 第幾週 / A 或 B 菜單 / 是否減量週；今日課表；本週完成率；今日熱量與蛋白質進度條；本週體重與週差值；僅週日顯示「本週量體重與腰圍」及量測時機提醒 | 開始訓練、記一餐、記本週體重與腰圍 |
+| 1. 首頁儀表板 | 第幾週 / A 或 B 菜單 / 是否減量週；今日課表；本週完成率；今日熱量與蛋白質進度條；最近一次 InBody 與前次差值，超過 7 天提醒 | 開始訓練、記一餐、記錄 InBody |
 | 2. 12 週計畫 | 12 週列表，每週可展開推日 / 拉日動作、組數、目標重量；已完成週標示實際結果 | 調整訓練日、查看動作說明 |
 | 3. 今日訓練 | 推日／拉日／補量日；動作卡片：中英文名、自備照片／拍照入口、目標（組×次、重量、RIR、休息）、上次數據、注意事項；每組一列輸入格 | 預填目標 → 改不同處 → 按「完成這組」自動開始計時；替換動作；結束時填疲勞 / 睡眠 / 疼痛 |
 | 4. 訓練分析 | 各肌群每週有效組數（與目標區間對照）、容量趨勢、主動作 e1RM 曲線 | 切換肌群 / 動作 / 時間範圍 |
@@ -175,7 +172,7 @@ MVP 先做「記錄 → 自動計算 → 每週建議 → 確認套用」完整�
 
 ## 8. 主要操作流程
 
-**快捷流程**：開始今日訓練 → 確認預填睡眠（上次值，無紀錄時暫填 8 小時）與適用的腰部分數 → 點選 RIR 即寫入第一組並啟動休息。預填值可直接使用時共三次點擊。完成組可在三秒內復原，最後一組後捲至下一個動作。重量依器材級距步進，次數每次加減 1。練後疲勞 1–10 單列選擇，疼痛欄預設收合。下週建議可一次接受所有待確認項目，仍可逐條拒絕或修改，最後按「產生下週課表」才套用並提示備份。週日量測畫面依序填體重、腰圍、體態照，皆可略過，一次儲存。
+**快捷流程**：開始今日訓練 → 確認預填睡眠（上次值，無紀錄時暫填 8 小時）與適用的腰部分數 → 點選 RIR 即寫入第一組並啟動休息。預填值可直接使用時共三次點擊。完成組可在三秒內復原，最後一組後捲至下一個動作。重量依器材級距步進，次數每次加減 1。練後疲勞 1–10 單列選擇，疼痛欄預設收合。下週建議可一次接受所有待確認項目，仍可逐條拒絕或修改，最後按「產生下週課表」才套用並提示備份。首頁可記錄 InBody；分析頁提供舊體重、腰圍與體態照的歷史入口。
 
 **訓練日**
 
@@ -259,6 +256,8 @@ MVP 先做「記錄 → 自動計算 → 每週建議 → 確認套用」完整�
 | 資料安全 | 資料只在手機；每 7 天提醒匯出備份；可從備份檔完整還原 |
 
 ## 11. 資料結構（IndexedDB / Dexie）
+
+**Dexie 版本 8**：新增 `inbody_records`，日期為主鍵，必填 `weight_kg`、`skeletal_muscle_kg`、`body_fat_kg`、`body_fat_pct`；選填 `visceral_fat_level`、`bmr_kcal`、`note`。補量計畫可加 `extra_session_id`。舊庫與缺此表的 V1 備份會新增繩索錘式彎舉（配重 × 次數，2.5 kg 級距），補上錘式彎舉、上斜啞鈴彎舉、二頭彎舉機的雙向替代，更新 B 拉日第 8 動作。只更正 2026-11-11 拉日的啞鈴錘式彎舉器材及與當時體重差 ≤ 3 kg 的引體向上加重，後者改為 0。重新計算受影響的訓練統計，既有飲食統計保留。
 
 **Dexie 版本 7**：新增 body_photos（date 主鍵、blob 為本機 JPEG、updated_at）；pain_reports 新增選填 phase（pre／during／post），練前及練中以 lower_back 保存分數，納入週報。草稿新增選填原動作／調整原因與最後一組復原資訊。既有資料與欄位意義保留，舊備份缺少新增表視為空表。
 
@@ -526,7 +525,7 @@ export interface LoadDecision { action: 'stop' | 'reduce' | 'increase' | 'hold';
 
 export function nextLoad(ex: Exercise, p: Planned, sets: LoggedSet[], painScore: number, prevBelowMin: boolean): LoadDecision {
   const work = sets.filter(s => s.side !== 'left');          // 單手動作用右側判斷
-  const w = p.targetWeightKg ?? work[0]?.weightKg ?? 0;
+  const w = work.length ? Math.max(...work.map(s => s.weightKg)) : p.targetWeightKg ?? 0;
   const up = (steps: number, ruleId: string): LoadDecision => ({ action: 'increase', weightKg: w + ex.incrementKg * steps, ruleId });
   const hold = (ruleId: string): LoadDecision => ({ action: 'hold', weightKg: w, ruleId });
 
@@ -535,8 +534,9 @@ export function nextLoad(ex: Exercise, p: Planned, sets: LoggedSet[], painScore:
   if (work.length === 0) return hold('L0');
 
   const done = work.length >= p.sets;
-  const minReps = Math.min(...work.map(s => s.reps));
-  const minRir = Math.min(...work.map(s => s.rir ?? 0));
+  const heaviest = work.filter(s => s.weightKg === w);
+  const minReps = Math.min(...heaviest.map(s => s.reps));
+  const minRir = Math.min(...heaviest.map(s => s.rir ?? 0));
   const bigStep = w > 0 && ex.incrementKg / w >= 0.1;       // 級距 ≥ 10% 只加 1 級
 
   if (done && minReps >= p.repMax + 2) return up(bigStep ? 1 : 2, 'L3');
@@ -551,10 +551,10 @@ export function nextLoad(ex: Exercise, p: Planned, sets: LoggedSet[], painScore:
 }
 
 // ---- M：肌群組數 ----
-export function muscleSetDelta(m: { status: 'new' | 'up' | 'flat' | 'down'; flatWeeks: number; avgFatigue: number;
+export function muscleSetDelta(m: { status: 'new' | 'up' | 'flat' | 'down'; flatWeeks: number; avgFatigue: number; fatigueCount?: number;
   completion: number; currentSets: number; cap: number; planDelta: number }): { delta: number; ruleId: string } {
   if (m.completion < 0.8) return { delta: 0, ruleId: 'M4' };
-  if (m.status === 'down' || m.avgFatigue >= 7) return { delta: -Math.max(1, Math.round(m.currentSets * 0.25)), ruleId: 'M3' };
+  if (m.status === 'down' || m.status !== 'new' && (m.fatigueCount ?? 0) >= 2 && m.avgFatigue >= 7) return { delta: -Math.max(1, Math.round(m.currentSets * 0.25)), ruleId: 'M3' };
   if (m.status === 'up' && m.avgFatigue <= 6) return { delta: Math.max(0, Math.min(m.planDelta, m.cap - m.currentSets)), ruleId: 'M1' };
   if (m.flatWeeks >= 2 && m.avgFatigue <= 6) return { delta: m.currentSets < m.cap ? 1 : 0, ruleId: 'M2' };
   return { delta: 0, ruleId: 'M0' };
@@ -587,14 +587,13 @@ export function dailyStatus(t: { kcal: number; proteinMin: number }, d: { kcal: 
   return kcalOk && proteinOk ? 'met' : kcalOk || proteinOk ? 'partial' : 'missed';
 }
 
-export function weeklyKcalDelta(i: { logCompleteness: number; weeklyGains: number[]; // 最近兩週，kg/週（由相鄰週最後一筆體重相減）
-  waistChange4w: number; weeksSinceLastAdjust: number }): { delta: number; ruleId: string } {
-  if (i.logCompleteness < 0.7) return { delta: 0, ruleId: 'N1' };
-  if (i.weeksSinceLastAdjust < 2) return { delta: 0, ruleId: 'N5' };
-  const last = i.weeklyGains[i.weeklyGains.length - 1] ?? 0;
-  if (last > 0.35 || i.waistChange4w >= 2) return { delta: -150, ruleId: 'N3' };
-  if (i.weeklyGains.length >= 2 && i.weeklyGains.slice(-2).every(g => g < 0.1)) return { delta: 150, ruleId: 'N2' };
-  return { delta: 0, ruleId: 'N0' };
+export function weeklyKcalDelta(i: { logCompleteness: number; daysSinceLastAdjust: number; change?: { weight: number; muscle: number; fat: number } }): { delta: number; ruleId: string } {
+  if (i.logCompleteness < 0.7) return { delta: 0, ruleId: 'N1' }
+  if (i.daysSinceLastAdjust < 14) return { delta: 0, ruleId: 'N5' }
+  const change = i.change
+  if (change && change.fat >= 0.5 && change.muscle < 0.2) return { delta: -150, ruleId: 'N3' }
+  if (change && change.weight < 0.2 && change.muscle < 0.2 && change.fat >= 0) return { delta: 150, ruleId: 'N2' }
+  return { delta: 0, ruleId: 'N0' }
 }
 ```
 
@@ -611,6 +610,8 @@ export function weeklyKcalDelta(i: { logCompleteness: number; weeklyGains: numbe
 | BMR（80 kg、178 cm、33 歲、男） | 1,752.5 kcal |
 
 ## 13. 程式模組、備份與資料匯入
+
+**飲食資料與 InBody**：設定可新增今日生效的四項營養目標，原因為「手動調整」。清除飲食需經先備份提示與筆數確認，輸入「清除」才可在同一交易刪除 meals、meal_items。已結算週報保留飲食快照，即使重新結算也保留統計。貼上可混合餐點與單行 `#InBody YYYY-MM-DD | 體重 70 | 骨骼肌 30 | 體脂肪 15 | 體脂率 21.4`，允許全形符號及選填欄位，錯誤列可修改，全批同一交易儲存。週報身體段落輸出最近兩次 InBody 與差值。
 
 **一鍵備份**：先準備 JSON，按鈕點擊時以 navigator.canShare({ files }) 檢查，支援時開系統分享選單，可選「儲存到檔案」再選 iCloud 雲碟。不支援檔案分享時下載。分享 API 成功返回或觸發下載後才更新上次備份時間，取消或失敗不更新。照片選項預設包含動作照片及體態照；兩表的 JPEG Blob 以 base64 編碼存入原版本 1 備份封套。
 
@@ -646,6 +647,8 @@ export function weeklyKcalDelta(i: { logCompleteness: number; weeklyGains: numbe
 **個人初始資料 my-data.json**：同備份格式，只含 user\_profiles、nutrition\_targets、body\_metrics 與第 1 週推日紀錄。第一次開啟 APP 時請使用者匯入；此檔列入 `.gitignore`，不上傳到 GitHub。動作庫與 12 週計畫則內建在程式的 seed 中。
 
 ## 14. 開發階段與驗收標準
+
+本次驗收：舊庫與舊備份向上相容、飲食清除限定兩表、InBody 格式與 N0／N2／N3、補量日自選及複製、M3 疲勞門檻與減組下限、最重組加重、徒手欄位與格式、指定歷史更正，以及 lint、typecheck、test、build。歷史詳情可更正動作並保留每組重量和次數；更正後以新器材類型重算。徒手欄為「加重（kg）」，沒掛重請填 0；若與體重差 3 kg 以內，儲存前需確認。啞鈴記單支，滑輪與器械記配重。
 
 依序開發，每個階段做完、通過驗收才進下一個。第 1–4 階段就是 MVP。
 
@@ -737,7 +740,7 @@ export function weeklyKcalDelta(i: { logCompleteness: number; weeklyGains: numbe
 
 ```text
 依 docs/spec.md 實作身體數據與圖表：
-1. 體重與腰圍每週日量一次，同週採最後一筆，分析顯示每週一點折線。
+1. 舊體重、腰圍與體態照仍可從分析查看；新版記錄改用 InBody。
 2. 訓練分析頁：各肌群每週有效組數（標出 10–20 組區間）、每週容量趨勢、主動作 e1RM 曲線（Recharts）。
 3. 匯出 CSV：每張表一個 CSV 打包成 zip，UTF-8 BOM 以便 Excel 開啟。
 驗收：第 14 節階段 4。
@@ -804,7 +807,7 @@ export function weeklyKcalDelta(i: { logCompleteness: number; weeklyGains: numbe
 | pull | 5 | leg\_press | 腿推機（不換） | quads | glutes | machine | 10 | 是 | 否 | 否 |
 | pull | 6 | curl\_cable | 繩索彎舉 / Cable Curl | biceps | — | cable | 2.5 | 否 | 否 | 否 |
 | pull | 7 | rear\_fly\_cable | 繩索後三角飛鳥 / Cable Rear Delt Fly | rear\_delt | — | cable | 2.5 | 否 | 否 | 否 |
-| pull | 8 | hammer\_curl\_db | 錘式彎舉 / Hammer Curl | biceps | — | dumbbell\_pair | 2 | 否 | 否 | 否 |
+| pull | 8 | hammer\_curl\_cable | 繩索錘式彎舉 / Cable Rope Hammer Curl | biceps | — | cable | 2.5 | 否 | 否 | 否 |
 | pull | 9 | rear\_raise\_chest\_sup | 上斜凳胸靠反向飛鳥 / Chest-supported Rear Delt Raise | rear\_delt | — | dumbbell\_pair | 1 | 否 | 否 | 否 |
 
 **替代動作對照**：A 與 B 同順序動作互為替代；rdl\_bb 的腰部替代為 leg\_curl\_lying。

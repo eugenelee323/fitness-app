@@ -163,9 +163,10 @@ export function aggregateWeek(input: WeeklyInput, weekNo: number): WeekMetrics {
       if (state === 'up') break
       flatOccurrences++
     }
-    const lastSets = current.sets.filter(s => s.session_id === sessions[0]?.id && s.exercise_id === id)
+    const regularSessions = sessions.filter(s => s.day_type !== 'extra')
+    const lastSets = current.sets.filter(s => s.session_id === regularSessions[0]?.id && s.exercise_id === id)
     const lastPlan = input.plans.find(p => p.id === lastSets[0]?.planned_exercise_id) ?? input.plans.find(p => p.program_week_id === current.week.id && p.exercise_id === id) ?? null
-    const previousSets = input.sets.filter(s => s.session_id === sessions[1]?.id && s.exercise_id === id && s.side !== 'left')
+    const previousSets = input.sets.filter(s => s.session_id === regularSessions[1]?.id && s.exercise_id === id && s.side !== 'left')
     const previousPlan = input.plans.find(p => p.id === previousSets[0]?.planned_exercise_id) ?? lastPlan
     const relevant = pains.filter(p => relevantPain(p, exercise))
     const recentPain = sessions.slice(0, 2).map(s => input.pains.some(p => p.session_id === s.id && relevantPain(p, exercise) && (p.score >= 4 || p.sharp || p.body_part.includes('刺痛'))))

@@ -1,6 +1,6 @@
 import { db, type FitnessDB } from './index'
 import { schemas, type Row } from './schema'
-import { extraPlans, extraAlreadyUsed, type DayType } from '../lib/rules/extra'
+import { extraAlreadyUsed, type DayType } from '../lib/rules/extra'
 import { entryTarget } from '../lib/rules/workout'
 import { taipeiDate } from '../lib/time'
 
@@ -21,25 +21,17 @@ export async function startWorkout(weekId: string, day: DayType, database: Fitne
     const current = await database.rows('workout_drafts').toCollection().first()
     if (current) return current.id
     const allSessions = await database.rows('workout_sessions').toArray()
-    if(day==='extra') {
-      if(extraAlreadyUsed(allSessions,weekId,date))throw new Error('本週已開始或完成一次補量日，最多一次；可從歷史接續或查看。')
-      const week=await database.rows('program_weeks').get(weekId)
-      if(!week)throw new Error('找不到訓練週次。')
-      const existing=await database.rows('planned_exercises').where('program_week_id').equals(weekId).toArray()
-      if(!existing.some(p=>p.day_type==='extra')){
-        const rows=extraPlans(weekId,await database.rows('exercises').toArray(),Array.from({length:6},()=>crypto.randomUUID()))
-        await database.rows('planned_exercises').bulkAdd(rows)
-        for(const row of rows)await database.rows('plan_changes').add({id:crypto.randomUUID(),planned_exercise_id:row.id,change:{scope:'extra_setup',before:null,after:row},applied_at:new Date().toISOString()})
-      }
-    }
-    const plans = (await database.rows('planned_exercises').where('program_week_id').equals(weekId).toArray()).filter(p => p.day_type === day && !p.is_paused).sort((a, b) => a.order_no - b.order_no)
-    if (!plans.length) throw new Error('這個週次沒有可用課表。')
+    if (day === 'extra' && extraAlreadyUsed(allSessions, weekId, date)) throw new Error('本週補量日最多一次。')
+    if (!await database.rows('program_weeks').get(weekId)) throw new Error('找不到訓練週次。')
+    const plans = (await database.rows('planned_exercises').where('program_week_id').equals(weekId).toArray()).filter(p => day !== 'extra' && p.day_type === day && !p.is_paused).sort((a, b) => a.order_no - b.order_no)
+    if (day !== 'extra' && !plans.length) throw new Error('這個週次沒有可用課表。')
     const exercises = await database.rows('exercises').toArray()
     const sessions = (await database.rows('workout_sessions').toArray()).filter(s => s.date <= date).sort((a, b) => b.date.localeCompare(a.date) || (b.started_at ?? '').localeCompare(a.started_at ?? ''))
     const allSets = await database.rows('workout_sets').toArray()
     const latestSets = allSets.filter(s => sessions.some(session => session.id === s.session_id)).sort((a, b) => sessions.findIndex(s => s.id === a.session_id) - sessions.findIndex(s => s.id === b.session_id) || b.set_no-a.set_no)
     const metric = await database.rows('body_metrics').where('date').belowOrEqual(date).last()
-    const session = schemas.workout_sessions.parse({ id: crypto.randomUUID(), started_at: new Date().toISOString(), program_week_id: weekId, day_type: day, date, completed: false, bodyweight_kg: metric?.weight_kg ?? null })
+    const inbody = await database.rows('inbody_records').where('date').belowOrEqual(date).last()
+    const session = schemas.workout_sessions.parse({ id: crypto.randomUUID(), started_at: new Date().toISOString(), program_week_id: weekId, day_type: day, date, completed: false, bodyweight_kg: inbody?.weight_kg ?? metric?.weight_kg ?? null })
     const items = plans.map(plan => {
       const ex = exercises.find(e => e.id === plan.exercise_id)!
       const entries = Array.from({ length: plan.sets }, (_, i) => (ex.unilateral ? ['left', 'right'] as const : ['both'] as const).map(side => ({ id: crypto.randomUUID(), set_no: i + 1, side, ...entryTarget(plan, ex, latestSets.find(s => s.exercise_id === ex.id && s.side === side)), done: false }))).flat()

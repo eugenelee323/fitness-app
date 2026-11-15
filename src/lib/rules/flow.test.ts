@@ -1,3 +1,4 @@
+import { inbodyFixture } from '../../test/nutritionFixture'
 import { describe,expect,it } from 'vitest'
 import { lowerBackCheck,stepInput,todayTraining } from './flow'
 import { reportNumbers } from './report'
@@ -16,8 +17,13 @@ describe('第 1 週公開推日資料純文字週報',()=>{
     for(const set of x.sets){const code=x.exercises.find(e=>e.id===set.exercise_id)!.code;const [kg,reps]={bench_bb:[65,8],shoulder_press_db:[16,12],incline_press_mc:[40,10],pushdown_cable:[17.5,12]}[code]!;set.weight_kg=kg;set.reps=reps}
     x.pains.push({id:fixtureId(),session_id:x.sessions[0].id,body_part:'lower_back',score:3,phase:'pre'})
     const food=nutritionFixture();x.meals=food.meals!.map(m=>({...m,date:'2026-11-10'}));x.mealItems=food.mealItems;x.nutritionTargets=food.nutritionTargets;x.bodyMetrics=[{id:fixtureId(),date:'2026-11-08',weight_kg:60,waist_cm:80},{id:fixtureId(),date:'2026-11-15',weight_kg:60.2,waist_cm:80.5}]
-    const r=reportNumbers(x,1,'2026-11-15');expect(r.metrics.volume).toBe(5062);expect(r.waistChange).toBe(.5);expect(r.average?.kcal).toBe(16800)
-    const text=weeklyReportText(x,1,[],'2026-11-15');expect(text.split('\n')[0]).toBe('#週報 第1週（2026-11-09～2026-11-15）A 菜單');expect(text).toContain('65×8@RIR2');expect(text).toContain('5,062');expect(text).toContain('腰部 lower_back | 3/10 | 練前');expect(text).toContain('本週腰圍 80.5 cm');expect(text).toContain('蛋白質');expect(text).not.toContain('data:image');expect(text).not.toMatch(/\d\.\d{2,}/)
+    x.inbodyRecords=inbodyFixture().map((row,i)=>({...row,date:i?'2026-11-15':'2026-11-01'}))
+    const r=reportNumbers(x,1,'2026-11-15');expect(r.metrics.volume).toBe(5062);expect(r.average?.kcal).toBe(16800)
+    const text=weeklyReportText(x,1,[],'2026-11-15');expect(text.split('\n')[0]).toBe('#週報 第1週（2026-11-09～2026-11-15）A 菜單');expect(text).toContain('65×8@RIR2');expect(text).toContain('5,062');expect(text).toContain('腰部 lower_back | 3/10 | 練前');expect(text).toContain('身體（InBody）');expect(text).toContain('體重 +0.1 kg');expect(text).toContain('蛋白質');expect(text).not.toContain('data:image');expect(text).not.toMatch(/\d\.\d{2,}/)
+    expect(reportNumbers(x,1,'2026-11-20').days.at(-1)?.date).toBe('2026-11-15')
+    const cleared = {...x, meals:[], mealItems:[]}
+    expect(weeklyReportText(cleared,1,[],'2026-11-15',r.days)).toContain('熱量 16,800 kcal')
+    expect(weeklyReportText(cleared,1,[],'2026-11-15')).not.toContain('熱量 16,800 kcal')
   })
   it('空資料、當週未結束與建議狀態可安全複製',()=>{
     const x=weeklyFixture();expect(reportNumbers(x,1,'2026-11-08').dietCompleteness).toBe(0);expect(reportNumbers(x,1,'2026-11-11').days).toHaveLength(3);expect(reportNumbers(x,1,'2026-11-11').average).toBeNull()

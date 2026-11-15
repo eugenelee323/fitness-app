@@ -1,3 +1,4 @@
+import { displayLoad, loadLabel } from '../lib/rules/loadDisplay'
 import { BackupPrompt } from './BackupButton'
 import { CopyReport } from './CopyReport'
 import { useState } from 'react'
@@ -14,7 +15,7 @@ function Targets({ proposal, input }: { proposal: Proposal; input: WeeklyInput }
   return <>{proposal.weeks.map(w => <p key={w.id}>第 {input.weeks.find(week => week.id === w.id)?.week_no} 週：{w.is_deload ? '減量週' : '正常訓練週'}</p>)}{proposal.rows.map(row => {
     const plan = input.plans.find(p => p.id === row.id)
     const ex = input.exercises.find(e => e.id === (row.exercise_id ?? plan?.exercise_id))
-    return <div className="proposal-target" key={row.id}><strong>{ex?.name_zh}<small className="english">{ex?.name_en}</small></strong><p>{row.sets != null && `${row.sets} 組 · `}{row.target_weight_kg !== undefined && (row.target_weight_kg === null ? '試重 · ' : `${row.target_weight_kg} kg · `)}{row.target_rir != null && `RIR ${row.target_rir} · `}{row.target_reps != null && `目標 ${row.target_reps} 下 · `}{row.is_paused === true ? '暫停此動作' : row.is_paused === false ? '使用此動作' : ''}</p></div>
+    return <div className="proposal-target" key={row.id}><strong>{ex?.name_zh}<small className="english">{ex?.name_en}</small></strong><p>{row.sets != null && `${row.sets} 組 · `}{row.target_weight_kg !== undefined && (row.target_weight_kg === null ? '試重 · ' : `${displayLoad(ex?.load_type,row.target_weight_kg)} · `)}{row.target_rir != null && `RIR ${row.target_rir} · `}{row.target_reps != null && `目標 ${row.target_reps} 下 · `}{row.is_paused === true ? '暫停此動作' : row.is_paused === false ? '使用此動作' : ''}</p></div>
   })}</>
 }
 function RecommendationCard({ rec, input, locked, run }: { rec: StoredRecommendation; input: WeeklyInput; locked: boolean; run: (fn: () => Promise<unknown>) => Promise<void> }) {
@@ -31,7 +32,7 @@ function RecommendationCard({ rec, input, locked, run }: { rec: StoredRecommenda
     {!locked && <div className="button-row"><button className="secondary" onClick={() => void run(() => decideRecommendation(rec.id, 'accepted'))}>接受原建議</button><button className="secondary" onClick={() => void run(() => decideRecommendation(rec.id, 'rejected'))}>拒絕</button><button className="secondary" disabled={!editable} onClick={() => { setValues(after.nutrition ? { kcal: String(after.nutrition.kcal) } : Object.fromEntries(after.rows.map(row => [row.id, String(after.editable === 'sets' ? row.sets ?? '' : row.target_weight_kg ?? '')]))); setEditing(!editing) }}>修改</button></div>}
     {editing && !locked && <div className="edit-recommendation"><h3>修改建議</h3>{after.editable === 'kcal' ? <label>每日熱量（kcal，較原目標最多 ±150）<input type="number" step="1" value={values.kcal ?? ''} onChange={e => setValues({ kcal: e.target.value })} /></label> : after.editable === 'deload' ? <p>可將延後建議改為「依原定週次減量」。不能將減量延後超過兩週。</p> : after.rows.map(row => {
       const ex = input.exercises.find(e => e.id === input.plans.find(p => p.id === row.id)?.exercise_id)
-      return <label key={row.id}>{ex?.name_zh} / {ex?.name_en} · {after.editable === 'sets' ? '組數' : '重量 kg'}<input type="number" inputMode={after.editable === 'sets' ? 'numeric' : 'decimal'} min={after.editable === 'sets' ? 1 : 0} step={after.editable === 'sets' ? 1 : 'any'} value={values[row.id] ?? ''} onChange={e => setValues({ ...values, [row.id]: e.target.value })} /></label>
+      return <label key={row.id}>{ex?.name_zh} / {ex?.name_en} · {after.editable === 'sets' ? '組數' : loadLabel(ex?.load_type ?? 'barbell')}<input type="number" inputMode={after.editable === 'sets' ? 'numeric' : 'decimal'} min={after.editable === 'sets' ? 1 : 0} step={after.editable === 'sets' ? 1 : 'any'} value={values[row.id] ?? ''} onChange={e => setValues({ ...values, [row.id]: e.target.value })} /></label>
     })}<button className="primary" onClick={() => void run(async () => {
       if (after.editable !== 'deload' && Object.values(values).some(value => value.trim() === '')) throw new Error('請填寫修改數值。')
       await decideRecommendation(rec.id, 'modified', after.editable === 'kcal' ? { kcal: Number(values.kcal) } : after.editable === 'deload' ? { deload: true } : { rows: after.rows.map(row => ({ id: row.id, value: Number(values[row.id]) })) })

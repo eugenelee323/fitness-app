@@ -1,3 +1,4 @@
+import { migrateWorkoutRecords } from './corrections'
 import Dexie, { type Table } from 'dexie'
 import { schemas, type Row, type TableName } from './schema'
 import { withPlanBaselines } from '../lib/rules/seed'
@@ -16,6 +17,7 @@ export const stores: Record<TableName, string> = {
   recommendations: 'id, analysis_id, status',
   plan_changes: 'id, recommendation_id, planned_exercise_id',
   foods: 'id, name', meals: 'id, date', meal_items: 'id, meal_id, food_id',
+  inbody_records: 'date',
   body_metrics: 'id, &date',
   body_photos:'date', exercise_photos: 'exercise_code', favorite_meals: 'id, name', workout_drafts: 'id, &session_id', app_meta: 'key', import_links: 'key, entity_id',
 }
@@ -24,8 +26,8 @@ export class FitnessDB extends Dexie {
   constructor(name = 'fitness-app') {
     super(name)
     // 後續結構異動須新增 version(n).stores(...).upgrade(...)，保留舊資料。
-    const { workout_drafts: _drafts, app_meta: _meta, import_links: _links, favorite_meals: _favorites, exercise_photos: _photos, body_photos:_bodyPhotos, ...originalStores } = stores
-    void [_drafts, _meta, _links, _favorites, _photos, _bodyPhotos]
+    const { workout_drafts: _drafts, app_meta: _meta, import_links: _links, favorite_meals: _favorites, exercise_photos: _photos, body_photos:_bodyPhotos, inbody_records:_inbody, ...originalStores } = stores
+    void [_drafts, _meta, _links, _favorites, _photos, _bodyPhotos, _inbody]
     this.version(1).stores(originalStores)
     // 版本 2 新增週次排序索引；Dexie 原地建立索引，不刪除既有紀錄。
     this.version(2).stores({ program_weeks: 'id, program_id, week_no, &[program_id+week_no]' })
@@ -40,6 +42,7 @@ export class FitnessDB extends Dexie {
     this.version(5).stores({ favorite_meals: stores.favorite_meals, nutrition_targets: 'id, effective_from, created_at, source_analysis_id' })
     this.version(6).stores({ exercise_photos: stores.exercise_photos, workout_sessions: 'id, program_week_id, date, day_type, [program_week_id+day_type]' })
     this.version(7).stores({body_photos:stores.body_photos}).upgrade(async tx=>{ await tx.table('app_meta').put({key:'schema_version',value:7}) })
+    this.version(8).stores({ inbody_records: stores.inbody_records }).upgrade(tx => migrateWorkoutRecords(tx))
     for (const name of Object.keys(stores) as TableName[]) {
       this.table(name).hook('creating', (_key, obj: unknown) => { schemas[name].parse(obj) })
       this.table(name).hook('updating', (changes, _key, obj: object) => {

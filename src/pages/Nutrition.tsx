@@ -1,9 +1,12 @@
+import { parseCombinedPaste } from '../lib/paste/inbody'
+import { inbodyText } from '../lib/rules/inbody'
+import { saveMeasurements } from '../db/inbody'
 import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import type { Row } from '../db/schema'
-import { mealData, saveMealsBatch, saveMeal, deleteMeal, saveFavorite, addFavorite, mealInputSchema, type MealInput } from '../db/meals'
-import { parseMealsText, mealLabels, type MealValue, type MealType } from '../lib/paste'
+import { mealData, saveMeal, deleteMeal, saveFavorite, addFavorite, mealInputSchema, type MealInput } from '../db/meals'
+import { mealLabels, type MealValue, type MealType } from '../lib/paste'
 import { nutritionDay, sumNutrients, scaleNutrients, NUTRIENT_KEYS, nutrientLabels } from '../lib/rules/nutrition'
 import { useClock } from '../hooks/useClock'
 import { taipeiDate } from '../lib/time'
@@ -64,11 +67,12 @@ function MealForm({ initial, existing, onClose, run }: { initial: MealInput; exi
 
 function PastePanel({raw,setRaw,onClose,onSaved,run,manual}:{raw:string;setRaw:(text:string)=>void;onClose:()=>void;onSaved:(date:string)=>void;run:Run;manual:boolean}){
   const [editing,setEditing]=useState(manual),[busy,setBusy]=useState(false)
-  const parsed=parseMealsText(raw)
+  const parsed=parseCombinedPaste(raw)
   function fix(lineNumber:number,value:string){const rows=raw.split(/\r?\n/);rows[lineNumber-1]=value;setRaw(rows.join('\n'))}
-  return <section className="card"><h2>一次貼上多餐</h2><p className="muted">每餐以「#餐點 日期 餐別」開頭，可含多日資料。</p>{(editing||!raw||!parsed.valid)&&<label>餐點文字<textarea aria-label="多餐估算文字" disabled={busy} rows={8} value={raw} onChange={e=>setRaw(e.target.value)}/></label>}<button className="secondary" onClick={()=>setEditing(!editing)}>編輯貼上文字</button>
+  return <section className="card"><h2>貼上餐點與 InBody</h2><p className="muted">可混貼多日餐點與 InBody。「#餐點 日期 餐別」或「#InBody 日期 | 體重 … | 骨骼肌 … | 體脂肪 … | 體脂率 …」。</p>{(editing||!raw||!parsed.valid)&&<label>估算文字<textarea aria-label="多餐估算文字" disabled={busy} rows={8} value={raw} onChange={e=>setRaw(e.target.value)}/></label>}<button className="secondary" onClick={()=>setEditing(!editing)}>編輯貼上文字</button>
+    {parsed.inbody.map(row=><article key={row.lineNumber} className={row.error?'paste-line invalid-line':'paste-line'}>{!row.error&&row.record?<p>{inbodyText(row.record)}</p>:<label>第 {row.lineNumber} 行：{row.error}<input aria-invalid="true" disabled={busy} value={row.text} onChange={e=>fix(row.lineNumber,e.target.value)} /></label>}</article>)}
     {raw&&parsed.blocks.map(block=><article className="paste-block" key={block.startLine}>{block.header?<h3>{block.header.date} · {mealLabels[block.header.meal_type]}</h3>:<p className="error">第 {block.startLine} 行：{block.headerError}</p>}{block.lines.map(line=><div key={line.lineNumber} className={line.error?'paste-line invalid-line':'paste-line'}>{line.error?<label>第 {line.lineNumber} 行：{line.error}<input disabled={busy} aria-invalid="true" value={line.text} onChange={e=>fix(line.lineNumber,e.target.value)}/></label>:<p>{line.item?.name} · {line.item?.grams} g · {line.item?.kcal} kcal <span className="badge">估</span></p>}</div>)}<p>合計 {formatN(sumNutrients(block.lines.flatMap(line=>line.item?[line.item]:[])).kcal)} kcal</p></article>)}
-    <button className="primary" data-primary-priority="10" disabled={!parsed.valid||busy} onClick={()=>{setBusy(true);void run(async()=>{await saveMealsBatch(parsed.blocks.map(block=>({...block.header!,items:block.lines.map(line=>line.item!),entry_source:'paste'})));onSaved(parsed.blocks[0].header!.date)}).finally(()=>setBusy(false))}}>{busy?'儲存中…':'一鍵全部確認'}</button><button className="secondary" disabled={busy} onClick={onClose}>取消</button>
+    <button className="primary" data-primary-priority="10" disabled={!parsed.valid||busy} onClick={()=>{setBusy(true);void run(async()=>{await saveMeasurements(parsed.blocks.map(block=>({...block.header!,items:block.lines.map(line=>line.item!),entry_source:'paste'})),parsed.inbody.map(row=>row.record));onSaved(parsed.blocks[0]?.header?.date ?? taipeiDate())}).finally(()=>setBusy(false))}}>{busy?'儲存中…':'一鍵全部確認'}</button><button className="secondary" disabled={busy} onClick={onClose}>取消</button>
   </section>
 }
 

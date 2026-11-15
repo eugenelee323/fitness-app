@@ -1,3 +1,4 @@
+import { connectHammerAlternatives } from '../db/corrections'
 import catalog from './catalog.json'
 import { db, type FitnessDB } from '../db'
 import { schemas, type Row } from '../db/schema'
@@ -23,7 +24,8 @@ export async function seedDatabase(database: FitnessDB = db) {
         alternatives.push({ exercise_id: exerciseId(from), alt_exercise_id: exerciseId(to), reason: a.code === 'rdl_bb' ? '腰部安全替代；腰部疼痛時改用俯臥腿彎舉。' : '同順序 A／B 菜單替代動作。' })
       }
     })
-    await database.rows('exercise_alternatives').bulkAdd(alternatives)
+    await database.rows('exercise_alternatives').bulkPut(alternatives)
+    await connectHammerAlternatives(database.rows('exercise_alternatives'), exercises)
     const program = schemas.programs.parse({ id: crypto.randomUUID(), start_date: '2026-11-09', weeks: 12, status: 'active' })
     await database.rows('programs').add(program)
     for (let weekNo = 1; weekNo <= 12; weekNo++) {

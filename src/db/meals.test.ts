@@ -1,4 +1,3 @@
-import { saveBodyMetric } from './body'
 import Dexie from 'dexie'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { FitnessDB, stores } from './index'
@@ -48,14 +47,14 @@ describe('餐點儲存、常用與備份',()=>{
     const name=database.name; database.close()
     const old=new Dexie(name); const {favorite_meals:ignored,exercise_photos:ignoredPhotos,...oldStores}=stores; void [ignored,ignoredPhotos]
     old.version(4).stores(oldStores); await old.table('meals').add(schemas.meals.parse({id:fixtureId(),date:meal.date,meal_type:'lunch'})); old.close()
-    database=new FitnessDB(name); await database.open(); expect(database.verno).toBe(7); expect(await database.rows('meals').count()).toBe(1); expect(await database.rows('favorite_meals').count()).toBe(0)
+    database=new FitnessDB(name); await database.open(); expect(database.verno).toBe(8); expect(await database.rows('meals').count()).toBe(1); expect(await database.rows('favorite_meals').count()).toBe(0)
   })
 })
 async function prepareNutrition() {
   const data=weeklyFixture(); const food=nutritionFixture()
   await database.rows('programs').add(data.program); await database.rows('program_weeks').bulkAdd(data.weeks)
   await database.rows('exercises').bulkAdd(data.exercises); await database.rows('planned_exercises').bulkAdd(data.plans); await database.rows('exercise_alternatives').bulkAdd(data.alternatives)
-  await database.rows('meals').bulkAdd(food.meals!); await database.rows('meal_items').bulkAdd(food.mealItems!); await database.rows('body_metrics').bulkAdd(food.bodyMetrics!); await database.rows('nutrition_targets').bulkAdd(food.nutritionTargets!)
+  await database.rows('inbody_records').bulkAdd(food.inbodyRecords!); await database.rows('meals').bulkAdd(food.meals!); await database.rows('meal_items').bulkAdd(food.mealItems!); await database.rows('body_metrics').bulkAdd(food.bodyMetrics!); await database.rows('nutrition_targets').bulkAdd(food.nutritionTargets!)
   const id=await settleWeek(3,false,database,new Date('2026-11-29T13:00:00Z')); const rec=(await database.rows('recommendations').where('analysis_id').equals(id).toArray()).find(r=>r.target_type==='nutrition')!
   return {id,rec,food}
 }
@@ -104,14 +103,14 @@ it('營養套用中途失敗時，新增目標、稽核、套用狀態全部回�
   expect(await readSnapshot(database)).toEqual(before)
 })
 
-it('修改身體數據使舊建議失效，重新結算後用新每週體重判斷熱量', async () => {
+it('修改 InBody 使舊建議失效，重新結算後用新紀錄判斷熱量', async () => {
   const {id,rec,food}=await prepareNutrition()
-  for(const row of food.bodyMetrics!.filter(r=>r.date>='2026-11-23')) await saveBodyMetric({date:row.date,weight_kg:61},database)
+  await database.rows('inbody_records').put({...food.inbodyRecords![1],body_fat_kg:15.5})
   await expect(decideRecommendation(rec.id,'accepted',undefined,database)).rejects.toThrow('資料已變動')
   await settleWeek(3,true,database,new Date('2026-11-29T13:00:00Z'))
   const next=(await database.rows('recommendations').where('analysis_id').equals(id).toArray()).find(r=>r.target_type==='nutrition')!
   expect(next.rule_id).toBe('N3')
-  const report=(await database.rows('weekly_analyses').get(id))!.metrics as {nutrition:{weeklyGains:number[]}}
-  expect(report.nutrition.weeklyGains).toEqual([.05,.95])
+  const report=(await database.rows('weekly_analyses').get(id))!.metrics as {nutrition:{comparison:{latest:{body_fat_kg:number}}}}
+  expect(report.nutrition.comparison.latest.body_fat_kg).toBe(15.5)
   expect(await database.rows('nutrition_targets').count()).toBe(1)
 })

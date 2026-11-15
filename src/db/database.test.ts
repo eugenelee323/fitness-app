@@ -22,12 +22,13 @@ function fixture(overrides = {}) {
 describe('內建資料與版本 1', () => {
   it('建立第 11 節應用資料表與持續訓練狀態表，不使用 auth 或 user_id', () => {
     expect(database.tables.map(t => t.name).sort()).toEqual([...tableNames].sort())
-    expect(database.verno).toBe(7)
+    expect(database.verno).toBe(8)
   })
   it('建立完整動作、替代動作、216 筆課表且可重複啟動', async () => {
     await seedDatabase(database)
-    expect(await database.rows('exercises').count()).toBe(33)
-    expect(await database.rows('exercise_alternatives').count()).toBe(30)
+    expect(await database.rows('exercises').count()).toBe(34)
+    const cable = await database.rows('exercises').where('code').equals('hammer_curl_cable').first()
+    expect(await database.rows('exercise_alternatives').where('exercise_id').equals(cable!.id).count()).toBe(3)
     expect(await database.rows('program_weeks').count()).toBe(12)
     expect(await database.rows('planned_exercises').count()).toBe(216)
     expect(await database.rows('user_profiles').count()).toBe(0)

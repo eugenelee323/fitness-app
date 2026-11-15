@@ -1,3 +1,4 @@
+import { displayLoad } from './loadDisplay'
 import type { Row } from '../../db/schema'
 import { deloadDecision, muscleSetDelta, nextLoad, type Muscle } from './index'
 import { exerciseRule, loggedRule, muscleLabels } from './workout'
@@ -80,13 +81,14 @@ export function planRecommendations(input: WeeklyInput, metrics: WeekMetrics, fo
     const lumbar = ex.loads_lower_back && (metrics.pains.some(isLumbarPain) || !!known?.lumbarPain)
     const sharp = known?.sharp || currentPain.some(p => p.sharp || p.body_part.includes('刺痛'))
     const base = regular.find(p => p.id === row.id)!
-    const actualWeight = known?.lastSets.find(s => s.side !== 'left')?.weight_kg ?? row.target_weight_kg ?? null
+    const workSets = known?.lastSets.filter(s => s.side !== 'left') ?? []
+    const actualWeight = workSets.length ? Math.max(...workSets.map(s=>s.weight_kg)) : row.target_weight_kg ?? null
     const beforePlan = known?.lastPlan
-    const work = known?.lastSets.filter(s => s.side !== 'left') ?? []
+    const work = workSets.filter(s=>s.weight_kg===actualWeight)
     const minReps = work.length ? Math.min(...work.map(s => s.reps)) : base.rep_min
     const minRir = work.length ? Math.min(...work.map(s => s.rir ?? 0)) : base.target_rir
     const result = nextLoad(exerciseRule(ex), { sets: beforePlan?.sets ?? base.sets, repMin: beforePlan?.rep_min ?? base.rep_min, repMax: beforePlan?.rep_max ?? base.rep_max, targetRir: base.target_rir, targetWeightKg: actualWeight }, known?.lastSets.map(loggedRule) ?? [], sharp ? Math.max(painScore, 4) : painScore, known?.previousBelowMin ?? false)
-    const context = { name: `${ex.name_zh} / ${ex.name_en}`, pain: painScore, painKind: sharp ? '刺痛' : '疼痛', sets: work.length, minReps, minRir, repMin: beforePlan?.rep_min ?? base.rep_min, repMax: beforePlan?.rep_max ?? base.rep_max, beforeWeight: actualWeight, afterWeight: result.weightKg, targetReps: targetReps(base.rep_min, base.rep_max, minReps, result.ruleId === 'L6'), belowCount: known?.previousBelowMin ? 2 : 1 }
+    const context = { name: `${ex.name_zh} / ${ex.name_en}`, pain: painScore, painKind: sharp ? '刺痛' : '疼痛', sets: workSets.length, minReps, minRir, repMin: beforePlan?.rep_min ?? base.rep_min, repMax: beforePlan?.rep_max ?? base.rep_max, beforeWeight: displayLoad(ex.load_type, actualWeight), afterWeight: displayLoad(ex.load_type, result.weightKg), targetReps: targetReps(base.rep_min, base.rep_max, minReps, result.ruleId === 'L6'), belowCount: known?.previousBelowMin ? 2 : 1 }
     if (lumbar || result.action === 'stop') {
       const alt = lumbar ? input.exercises.find(e => e.code === 'leg_curl_lying') : input.exercises.find(e => input.alternatives.some(a => a.exercise_id === ex.id && a.alt_exercise_id === e.id) && !e.loads_lower_back)
       const after = envelope('none', 'load', true)
@@ -96,7 +98,7 @@ export function planRecommendations(input: WeeklyInput, metrics: WeekMetrics, fo
       recommendations.push(rec); safetyIds.add(row.id); continue
     }
     if (deload || postpone || recovery) continue
-    if (!known) {
+    if (!known?.lastSets.length) {
       if (row.target_weight_kg == null) {
         const after = envelope('none', 'load')
         after.rows = [{ id: row.id, target_rir: 2 }]
@@ -133,6 +135,7 @@ export function planRecommendations(input: WeeklyInput, metrics: WeekMetrics, fo
     recommendations.push(suggestion(input, 'program', next.id, rule, after, { sourceWeek: source.week_no, nextWeek: next.week_no, originWeek: origin, postponed: postpone ? delayed + 1 : delayed, deferredWeek: next.week_no + 1, fatigue: metrics.avgFatigue, sleep: metrics.avgSleep, downLifts: main.filter(e => e.downWeeks >= 2).length }))
     return recommendations
   }
+  const fatigueCount = input.sessions.filter(s => s.program_week_id === source.id && s.fatigue != null).length
   const working = regular.map(p => ({ ...p }))
   for (const muscle of Object.keys(muscleLabels) as Muscle[]) {
     const related = metrics.exercises.filter(e => e.exercise.primary_muscle === muscle)
@@ -141,13 +144,18 @@ export function planRecommendations(input: WeeklyInput, metrics: WeekMetrics, fo
     const beforeSets = muscleRows.reduce((n, p) => n + p.sets, 0)
     const flatWeeks = Math.min(...related.map(e => e.flatWeeks))
     const state = related.some(e => e.status === 'down') ? 'down' : related.every(e => e.status === 'up') && currentRows.filter(p => input.exercises.find(e => e.id === p.exercise_id)?.primary_muscle === muscle && !p.is_paused).every(p => related.some(e => e.exercise.id === p.exercise_id && e.status === 'up')) ? 'up' : related.some(e => e.status === 'new') ? 'new' : 'flat'
-    const delta = muscleSetDelta({ status: state, flatWeeks, avgFatigue: metrics.avgFatigue ?? (state === 'down' ? 0 : 6.5), completion: metrics.completion.ratio, currentSets: beforeSets, cap: beforeSets + 1, planDelta: 1 })
+    const trained = input.sessions.filter(s => s.program_week_id === source.id && s.fatigue != null && input.sets.some(set => set.session_id === s.id && input.exercises.some(e => e.id === set.exercise_id && (e.primary_muscle === muscle || e.secondary_muscles.includes(muscle)))))
+    const fatigue = trained.length ? trained.reduce((sum, session) => sum + session.fatigue!, 0) / trained.length : null
+    const delta = muscleSetDelta({ status: state, flatWeeks, fatigueCount: fatigue == null ? 0 : fatigueCount, avgFatigue: fatigue ?? 6.5, completion: metrics.completion.ratio, currentSets: beforeSets, cap: beforeSets + 1, planDelta: 1 })
     if (!delta.delta) continue
     let remaining = delta.delta
     const patches: PlanPatch[] = []
     for (const row of muscleRows) {
       if (weightChanged.has(row.id) || safetyIds.has(row.id)) continue
-      const count = remaining > 0 ? 1 : Math.max(remaining, 1 - row.sets)
+      const old = currentRows.find(p => p.day_type === row.day_type && p.order_no === row.order_no)
+      const observed = related.find(e => e.exercise.id === (old?.exercise_id ?? row.exercise_id))
+      if (remaining < 0 && (observed == null || observed.status === 'new' || !observed.lastSets.length || row.sets <= 2 || (state !== 'down' && !trained.some(s => s.day_type === row.day_type && s.fatigue! >= 7)))) continue
+      const count = remaining > 0 ? 1 : -1
       if (!count) continue
       const proposal = working.map(p => p.id === row.id ? { ...p, sets: p.sets + count } : p)
       try { safetyWeek(proposal, input.exercises) } catch { continue }
@@ -158,7 +166,7 @@ export function planRecommendations(input: WeeklyInput, metrics: WeekMetrics, fo
     }
     const after = envelope(patches.length ? 'sets' : 'none', 'muscle')
     after.rows = patches
-    recommendations.push(suggestion(input, 'muscle', muscle, patches.length ? delta.ruleId as RuleId : 'M-defer', after, { name: muscleLabels[muscle], effectiveSets: metrics.muscles[muscle].sets, fatigue: metrics.avgFatigue, flatWeeks, beforeSets, afterSets: muscleRows.reduce((n, p) => n + p.sets, 0) }))
+    recommendations.push(suggestion(input, 'muscle', muscle, patches.length ? delta.ruleId as RuleId : 'M-defer', after, { name: muscleLabels[muscle], effectiveSets: metrics.muscles[muscle].sets, fatigue, flatWeeks, beforeSets, afterSets: muscleRows.reduce((n, p) => n + p.sets, 0) }))
   }
   return recommendations
 }

@@ -1,3 +1,5 @@
+import { correctExercise } from '../db/corrections'
+import { displayLoad, loadLabel } from '../lib/rules/loadDisplay'
 import { ExercisePhoto } from './ExercisePhoto'
 import { dayLabels } from '../lib/rules/extra'
 import { useState } from 'react'
@@ -21,6 +23,8 @@ export function HistoryDetail() {
   const navigate = useNavigate()
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [correcting, setCorrecting] = useState('')
+  const [replacement, setReplacement] = useState('')
   const data = useLiveQuery(async () => ({ session: await db.rows('workout_sessions').get(id ?? ''), sets: await db.rows('workout_sets').where('session_id').equals(id ?? '').toArray(), pains: await db.rows('pain_reports').where('session_id').equals(id ?? '').toArray(), draft: await db.rows('workout_drafts').where('session_id').equals(id ?? '').first(), exercises: await db.rows('exercises').toArray() }), [id])
   if (!data) return <p role="status">讀取中…</p>
   if (!data.session) return <><h1>找不到紀錄</h1><Link to="/history">返回歷史</Link></>
@@ -29,7 +33,7 @@ export function HistoryDetail() {
   return <><Link className="text-link" to="/history">← 訓練歷史</Link><div className="page-title"><span className="eyebrow">{session.date}</span><h1>{dayLabels[session.day_type]}訓練紀錄</h1><p>{data.draft ? '進行中' : session.completed ? '已完成' : '部分完成'} · 疲勞 {session.fatigue ?? '未填'} · 睡眠 {session.sleep_h ?? '未填'} 小時</p></div>
     {data.draft && <Link className="primary" to="/training">接續這次訓練</Link>}
     <WorkoutSummary sets={sets} exercises={exercises} bodyweight={session.bodyweight_kg} />
-    {groups.map(exId => { const ex = exercises.find(e => e.id === exId)!; return <section className="card" key={exId}><h2>{ex.name_zh}<small className="english">{ex.name_en}</small></h2><ExercisePhoto code={ex.code} name={ex.name_zh} /><div className="table-scroll"><table><thead><tr><th>組</th><th>側</th><th>重量 kg</th><th>次數</th><th>RIR</th></tr></thead><tbody>{sets.filter(s => s.exercise_id === exId).sort((a, b) => a.set_no - b.set_no || a.side.localeCompare(b.side)).map(s => <tr key={s.id}><td>{s.set_no}</td><td>{{ both: '雙側', left: '左', right: '右' }[s.side]}</td><td>{s.weight_kg}</td><td>{s.reps}</td><td>{s.rir ?? '—'}</td></tr>)}</tbody></table></div></section> })}
+    {groups.map(exId => { const ex = exercises.find(e => e.id === exId)!; return <section className="card" key={exId}><h2>{ex.name_zh}<small className="english">{ex.name_en}</small></h2><ExercisePhoto code={ex.code} name={ex.name_zh} />{!data.draft && <button className="secondary" onClick={()=>{setCorrecting(correcting===exId?'':exId);setReplacement('')}}>更換為其他動作</button>}{correcting===exId&&<div><label>正確動作<select value={replacement} onChange={e=>setReplacement(e.target.value)}><option value="">請選擇</option>{exercises.filter(e=>e.id!==exId).map(e=><option key={e.id} value={e.id}>{e.name_zh}／{e.name_en}</option>)}</select></label><button className="secondary" disabled={!replacement||busy} onClick={async()=>{setBusy(true);setError('');try{await correctExercise(db,session.id,exId,replacement);setCorrecting('')}catch(e){setError(e instanceof Error?e.message:'更換失敗。')}finally{setBusy(false)}}}>確認更換</button></div>}<div className="table-scroll"><table><thead><tr><th>組</th><th>側</th><th>{loadLabel(ex.load_type)}</th><th>次數</th><th>RIR</th></tr></thead><tbody>{sets.filter(s => s.exercise_id === exId).sort((a, b) => a.set_no - b.set_no || a.side.localeCompare(b.side)).map(s => <tr key={s.id}><td>{s.set_no}</td><td>{{ both: '雙側', left: '左', right: '右' }[s.side]}</td><td>{displayLoad(ex.load_type,s.weight_kg,false)}</td><td>{s.reps}</td><td>{s.rir ?? '—'}</td></tr>)}</tbody></table></div></section> })}
     {data.pains.length > 0 && <section className="card"><h2>疼痛紀錄</h2>{data.pains.map(p => <p key={p.id}>{p.body_part} · {p.score} 分{p.exercise_id && ` · ${exercises.find(e => e.id === p.exercise_id)?.name_zh ?? ''}`}</p>)}</section>}
     {error && <p className="error" role="alert">{error}</p>}<button className="danger" disabled={busy} onClick={async () => {
       if (!window.confirm('確定刪除這次訓練？所有組數、疼痛與進行中草稿都會一併刪除，無法復原。')) return

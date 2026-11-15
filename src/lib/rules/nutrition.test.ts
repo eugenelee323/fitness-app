@@ -1,3 +1,4 @@
+import { inbodyFixture } from '../../test/nutritionFixture'
 import { describe, expect, it } from 'vitest'
 import type { Row } from '../../db/schema'
 import { adjustedNutrition, calendarDate, nutritionDay, nutritionEffectiveDate, nutritionWeek, proteinReminder, scaleNutrients, sumNutrients, targetForDate, weekDates, weeklyMeasurement, type NutritionInput } from './nutrition'
@@ -89,27 +90,30 @@ describe('每週熱量建議', () => {
     expect(result).toMatchObject({ delta: 0, ruleId: 'N1', recorded: 0, avgProtein: null, target: null })
     expect(result.notices.join()).toContain('低於 70%')
     expect(result.notices.join()).toContain('尚無當日生效')
-    expect(result.notices.join()).toContain('每週體重紀錄不足')
+    expect(result.notices.join()).toContain('缺少與最新 InBody')
   })
-  it('連續 2 週增重 < 0.1 kg 時建議 +150 kcal', () => {
-    const result = nutritionWeek({ ...weekLog(3), nutritionTargets: [target()], bodyMetrics: weights([80, 80.05, 80.1]) }, 3, today)
+  it('兩筆 InBody 增重、增肌皆低且未減脂時建議 +150 kcal', () => {
+    const result = nutritionWeek({ ...weekLog(3), nutritionTargets: [target()], inbodyRecords: inbodyFixture(), bodyMetrics: weights([80, 80.05, 80.1]) }, 3, today)
     expect(result).toMatchObject({ delta: 150, ruleId: 'N2', completeness: 1, loggedDays: 7, metDays: 7, partialDays: 0, avgProtein: 160 })
     expect(result.weeklyGains.map(g => Math.round(g * 100) / 100)).toEqual([0.05, 0.05])
   })
-  it('增重過快或腰圍 4 週 +2 cm 時建議 −150 kcal', () => {
-    const fast = nutritionWeek({ ...weekLog(3), nutritionTargets: [target()], bodyMetrics: weights([80, 80.1, 80.5]) }, 3, today)
-    expect(fast).toMatchObject({ delta: -150, ruleId: 'N3' })
-    const waist = nutritionWeek({ ...weekLog(5), nutritionTargets: [target()], bodyMetrics: weights([80, 80, 80, 80.1, 80.2], { '2026-11-15': 84, '2026-12-13': 86 }) }, 5, '2026-12-14')
-    expect(waist).toMatchObject({ delta: -150, ruleId: 'N3', waistChange4w: 2 })
+  it('體脂肪增加 0.5 kg 且骨骼肌增加低於 0.2 kg 時減少 150 kcal', () => {
+    const input = { ...weekLog(3), nutritionTargets: [target()], inbodyRecords: inbodyFixture({body_fat_kg: 15.5, bmr_kcal: 1700}) }
+    const out = nutritionWeek(input, 3, today)
+    expect(out).toMatchObject({ delta: -150, ruleId: 'N3', estimatedTdee: 2040 })
+    expect(out.notices.join()).toContain('體脂肪 15.5 kg')
   })
-  it('只有兩週體重時以單週增重判定，維持熱量', () => {
+  it('兩筆 InBody 已增肌 0.2 kg 時維持熱量；舊體重單獨不觸發熱量調整', () => {
+    const maintained = nutritionWeek({ ...weekLog(3), nutritionTargets: [target()], inbodyRecords: inbodyFixture({ skeletal_muscle_kg: 30.2, body_fat_kg: 15.5 }) }, 3, today)
+    expect(maintained).toMatchObject({ delta: 0, ruleId: 'N0' })
+    expect(maintained.estimatedTdee).toBeCloseTo(1753 * 1.2)
     const result = nutritionWeek({ ...weekLog(2), nutritionTargets: [target()], bodyMetrics: weights([80, 80.2]) }, 2, '2026-11-22')
     expect(result.weeklyGains).toHaveLength(1)
     expect(result).toMatchObject({ delta: 0, ruleId: 'N0' })
   })
-  it('蛋白質週平均 < 130 g 只提醒，不改熱量', () => {
-    const result = nutritionWeek({ ...weekLog(3, 30), nutritionTargets: [target()], bodyMetrics: weights([80, 80.05, 80.1]) }, 3, today)
-    expect(result).toMatchObject({ delta: 0, ruleId: 'N4', avgProtein: 120, metDays: 0, partialDays: 7 })
+  it('蛋白質週平均低時仍提供提醒', () => {
+    const result = nutritionWeek({ ...weekLog(3, 30), nutritionTargets: [target()], inbodyRecords: inbodyFixture(), bodyMetrics: weights([80, 80.05, 80.1]) }, 3, today)
+    expect(result).toMatchObject({ delta: 150, ruleId: 'N2', avgProtein: 120, metDays: 0, partialDays: 7 })
     expect(result.notices.join()).toContain('蛋白質週平均 120 g')
     const low = weekLog(3, 30)
     const incomplete = nutritionWeek({ meals: low.meals?.slice(0, 4), mealItems: low.mealItems, nutritionTargets: [target()] }, 3, today)
@@ -121,9 +125,13 @@ describe('每週熱量建議', () => {
     const result = nutritionWeek({ ...weekLog(3), nutritionTargets: recent, bodyMetrics: weights([80, 80.05, 80.1]) }, 3, today)
     expect(result).toMatchObject({ delta: 0, ruleId: 'N5', weeksSinceLastAdjust: 6 / 7 })
     expect(result.notices.join()).toContain('未滿 2 週')
+    const manual = nutritionWeek({ ...weekLog(3), nutritionTargets: [{ ...recent[1], reason:'手動調整' }], inbodyRecords: inbodyFixture() }, 3, today)
+    expect(manual.ruleId).toBe('N5')
+    const noLog = nutritionWeek({ nutritionTargets: [target(), target({effective_from:'2026-11-30',kcal:2650})] }, 3, today)
+    expect(noLog.ruleId).toBe('N1')
   })
   it('調整後無法保留蛋白質與脂肪時不調整', () => {
-    const result = nutritionWeek({ ...weekLog(3, 40), nutritionTargets: [target({ kcal: 1000, protein_g: 145, fat_g: 70 })], bodyMetrics: weights([80, 80.05, 80.1]) }, 3, today)
+    const result = nutritionWeek({ ...weekLog(3, 40), nutritionTargets: [target({ kcal: 1000, protein_g: 145, fat_g: 70 })], inbodyRecords: inbodyFixture(), bodyMetrics: weights([80, 80.05, 80.1]) }, 3, today)
     expect(result).toMatchObject({ delta: 0, ruleId: 'N6' })
     expect(result.notices.join()).toContain('不足以保留')
   })

@@ -5,7 +5,7 @@ import { todayTraining } from '../lib/rules/flow'
 import { dayLabels,type DayType } from '../lib/rules/extra'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link } from 'react-router-dom'
-import { QuickBody } from './Body'
+import { InbodyCard } from './Inbody'
 import { TodayNutrition } from './NutritionProgress'
 import { db } from '../db'
 import { useClock } from '../hooks/useClock'
@@ -44,5 +44,5 @@ export function Dashboard() {
     {outside && <div className="note">今天不在計畫的 12 週日期範圍內；仍可從訓練頁選擇週次記錄。</div>}
     <section className="card hero"><span className="eyebrow">第 {data.week.week_no} 週 · 階段 {data.week.phase}</span><h2>{data.week.menu} 菜單 · {data.week.is_deload ? '減量週' : '訓練週'}</h2><StartWorkoutButton weekId={data.week.id} day={override??data.prompt} label={data.draft?'接續訓練':'開始今日訓練'} />{!data.draft&&<p>第 {data.week.week_no} 週 · {data.week.menu} 菜單 · {dayLabels[override??data.prompt]} <button className="text-link" onClick={()=>setChanging(!changing)}>更換</button></p>}{changing&&<div className="day-picker">{(['push','pull','extra'] as const).map(day=><button key={day} aria-pressed={(override??data.prompt)===day} onClick={()=>{setOverride(day);setChanging(false)}}>{dayLabels[day]}</button>)}<Link className="text-link" to="/training">進階選擇 →</Link></div>}</section>
     <section className="card"><h2>本週完成率</h2><div className="big-number">{Math.round(data.completion.ratio * 100)}<small>%</small></div><progress max="1" value={data.completion.ratio} aria-label="本週完成率" /><p>{data.completion.done}／{data.completion.target} 組 · 單手左右各算半組，重複訓練不重複累計。</p></section>
-    <QuickBody /><TodayNutrition /><div className="link-row"><Link className="secondary" to="/plan">12 週計畫</Link><Link className="secondary" to="/history">訓練歷史</Link></div></>
+    <InbodyCard /><TodayNutrition /><div className="link-row"><Link className="secondary" to="/plan">12 週計畫</Link><Link className="secondary" to="/history">訓練歷史</Link></div></>
 }

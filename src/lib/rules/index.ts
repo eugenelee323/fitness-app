@@ -1,4 +1,4 @@
-export const RULES_VERSION = '2026.11-4';
+export const RULES_VERSION = '2026.11-5';
 
 export type Muscle = 'chest' | 'back' | 'front_delt' | 'side_delt' | 'rear_delt'
   | 'biceps' | 'triceps' | 'quads' | 'hamstrings' | 'glutes';
@@ -45,7 +45,7 @@ export interface LoadDecision { action: 'stop' | 'reduce' | 'increase' | 'hold';
 
 export function nextLoad(ex: Exercise, p: Planned, sets: LoggedSet[], painScore: number, prevBelowMin: boolean): LoadDecision {
   const work = sets.filter(s => s.side !== 'left');          // 單手動作用右側判斷
-  const w = p.targetWeightKg ?? work[0]?.weightKg ?? 0;
+  const w = work.length ? Math.max(...work.map(s => s.weightKg)) : p.targetWeightKg ?? 0;
   const up = (steps: number, ruleId: string): LoadDecision => ({ action: 'increase', weightKg: w + ex.incrementKg * steps, ruleId });
   const hold = (ruleId: string): LoadDecision => ({ action: 'hold', weightKg: w, ruleId });
 
@@ -54,8 +54,9 @@ export function nextLoad(ex: Exercise, p: Planned, sets: LoggedSet[], painScore:
   if (work.length === 0) return hold('L0');
 
   const done = work.length >= p.sets;
-  const minReps = Math.min(...work.map(s => s.reps));
-  const minRir = Math.min(...work.map(s => s.rir ?? 0));
+  const heaviest = work.filter(s => s.weightKg === w)
+  const minReps = Math.min(...heaviest.map(s => s.reps));
+  const minRir = Math.min(...heaviest.map(s => s.rir ?? 0));
   const bigStep = w > 0 && ex.incrementKg / w >= 0.1;       // 級距 ≥ 10% 只加 1 級
 
   if (done && minReps >= p.repMax + 2) return up(bigStep ? 1 : 2, 'L3');
@@ -70,10 +71,10 @@ export function nextLoad(ex: Exercise, p: Planned, sets: LoggedSet[], painScore:
 }
 
 // ---- M：肌群組數 ----
-export function muscleSetDelta(m: { status: 'new' | 'up' | 'flat' | 'down'; flatWeeks: number; avgFatigue: number;
+export function muscleSetDelta(m: { status: 'new' | 'up' | 'flat' | 'down'; flatWeeks: number; avgFatigue: number; fatigueCount?: number;
   completion: number; currentSets: number; cap: number; planDelta: number }): { delta: number; ruleId: string } {
   if (m.completion < 0.8) return { delta: 0, ruleId: 'M4' };
-  if (m.status === 'down' || m.avgFatigue >= 7) return { delta: -Math.max(1, Math.round(m.currentSets * 0.25)), ruleId: 'M3' };
+  if (m.status === 'down' || m.status !== 'new' && (m.fatigueCount ?? 0) >= 2 && m.avgFatigue >= 7) return { delta: -Math.max(1, Math.round(m.currentSets * 0.25)), ruleId: 'M3' };
   if (m.status === 'up' && m.avgFatigue <= 6) return { delta: Math.max(0, Math.min(m.planDelta, m.cap - m.currentSets)), ruleId: 'M1' };
   if (m.flatWeeks >= 2 && m.avgFatigue <= 6) return { delta: m.currentSets < m.cap ? 1 : 0, ruleId: 'M2' };
   return { delta: 0, ruleId: 'M0' };
@@ -97,8 +98,8 @@ export function deloadDecision(w: { mainLiftsDown2Weeks: number; fatigueHigh2Wee
 export const bmr = (sex: 'male' | 'female', kg: number, cm: number, age: number) =>
   10 * kg + 6.25 * cm - 5 * age + (sex === 'male' ? 5 : -161);
 export const ACTIVITY = { sedentary: 1.2, light: 1.375, moderate: 1.55 } as const;
-export const tdee = (bmrKcal: number, activity: keyof typeof ACTIVITY, sessionsPerWeek: number) =>
-  bmrKcal * ACTIVITY[activity] + (300 * sessionsPerWeek) / 7;
+export const tdee = (bmrKcal: number, activity: keyof typeof ACTIVITY, sessionsPerWeek: number, inbodyBmr?: number) =>
+  (inbodyBmr == null ? bmrKcal * ACTIVITY[activity] : inbodyBmr * 1.2) + (300 * sessionsPerWeek) / 7;
 
 export function dailyStatus(t: { kcal: number; proteinMin: number }, d: { kcal: number; protein: number }) {
   const kcalOk = Math.abs(d.kcal - t.kcal) <= t.kcal * 0.1;
@@ -106,12 +107,11 @@ export function dailyStatus(t: { kcal: number; proteinMin: number }, d: { kcal: 
   return kcalOk && proteinOk ? 'met' : kcalOk || proteinOk ? 'partial' : 'missed';
 }
 
-export function weeklyKcalDelta(i: { logCompleteness: number; weeklyGains: number[]; // 最近兩週，kg/週（由每週最後一筆體重計算）
-  waistChange4w: number; weeksSinceLastAdjust: number }): { delta: number; ruleId: string } {
-  if (i.logCompleteness < 0.7) return { delta: 0, ruleId: 'N1' };
-  if (i.weeksSinceLastAdjust < 2) return { delta: 0, ruleId: 'N5' };
-  const last = i.weeklyGains[i.weeklyGains.length - 1] ?? 0;
-  if (last > 0.35 || i.waistChange4w >= 2) return { delta: -150, ruleId: 'N3' };
-  if (i.weeklyGains.length >= 2 && i.weeklyGains.slice(-2).every(g => g < 0.1)) return { delta: 150, ruleId: 'N2' };
-  return { delta: 0, ruleId: 'N0' };
+export function weeklyKcalDelta(i: { logCompleteness: number; daysSinceLastAdjust: number; change?: { weight: number; muscle: number; fat: number } }): { delta: number; ruleId: string } {
+  if (i.logCompleteness < 0.7) return { delta: 0, ruleId: 'N1' }
+  if (i.daysSinceLastAdjust < 14) return { delta: 0, ruleId: 'N5' }
+  const change = i.change
+  if (change && change.fat >= 0.5 && change.muscle < 0.2) return { delta: -150, ruleId: 'N3' }
+  if (change && change.weight < 0.2 && change.muscle < 0.2 && change.fat >= 0) return { delta: 150, ruleId: 'N2' }
+  return { delta: 0, ruleId: 'N0' }
 }

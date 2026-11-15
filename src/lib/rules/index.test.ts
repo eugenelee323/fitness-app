@@ -54,11 +54,11 @@ describe('第 12 節純函式', () => {
     expect(dailyStatus({ kcal: 2000, proteinMin: 100 }, { kcal: 2000, protein: 100 })).toBe('met')
     expect(dailyStatus({ kcal: 2000, proteinMin: 100 }, { kcal: 2000, protein: 80 })).toBe('partial')
     expect(dailyStatus({ kcal: 2000, proteinMin: 100 }, { kcal: 1000, protein: 80 })).toBe('missed')
-    const i = { logCompleteness: 1, weeklyGains: [0, 0.05], waistChange4w: 0, weeksSinceLastAdjust: 2 }
+    const i = { logCompleteness: 1, change: { weight: 0.1, muscle: 0.1, fat: 0 }, daysSinceLastAdjust: 14 }
     expect(weeklyKcalDelta(i).delta).toBe(150)
     expect(weeklyKcalDelta({ ...i, logCompleteness: 0.5 }).ruleId).toBe('N1')
-    expect(weeklyKcalDelta({ ...i, weeksSinceLastAdjust: 1 }).ruleId).toBe('N5')
-    expect(weeklyKcalDelta({ ...i, weeklyGains: [0.4] }).delta).toBe(-150)
-    expect(weeklyKcalDelta({ ...i, weeklyGains: [0.2] }).delta).toBe(0)
+    expect(weeklyKcalDelta({ ...i, daysSinceLastAdjust: 13 }).ruleId).toBe('N5')
+    expect(weeklyKcalDelta({ ...i, change: {weight: .4, muscle: .1, fat: .5} }).delta).toBe(-150)
+    expect(weeklyKcalDelta({ ...i, change: {weight: .2, muscle: .2, fat: 0} }).delta).toBe(0)
   })
 })

@@ -1,11 +1,13 @@
+import { elapsedDays, inbodyComparison, inbodyDifference, inbodyText, recentInbody } from './inbody'
 import type { Row } from '../../db/schema'
-import { dailyStatus, weeklyKcalDelta } from './index'
+import { bmr, tdee, dailyStatus, weeklyKcalDelta } from './index'
 import { explain } from '../explain'
 
 export interface Nutrients { kcal: number; protein_g: number; carbs_g: number; fat_g: number }
 export const nutrientLabels: Record<keyof Nutrients, string> = { kcal: '熱量', protein_g: '蛋白質', carbs_g: '碳水', fat_g: '脂肪' }
 export const NUTRIENT_KEYS = ['kcal', 'protein_g', 'carbs_g', 'fat_g'] as const
 export interface NutritionInput {
+  profiles?: Row<'user_profiles'>[]; inbodyRecords?: Row<'inbody_records'>[]
   meals?: Row<'meals'>[]; mealItems?: Row<'meal_items'>[]; nutritionTargets?: Row<'nutrition_targets'>[]
   bodyMetrics?: Row<'body_metrics'>[]; sessions?: Row<'workout_sessions'>[]; allSessions?: Row<'workout_sessions'>[]
 }
@@ -17,7 +19,7 @@ export interface NutritionDay {
 export interface NutritionWeek {
   days: NutritionDay[]; recorded: number; expected: number; completeness: number
   loggedDays: number; metDays: number; partialDays: number; avgProtein: number | null
-  weeklyWeights: (number | null)[]; measurementMode: 'weekly'; weeklyGains: number[]; waistChange4w: number | null
+  weeklyWeights: (number | null)[]; measurementMode: 'inbody'; comparison: ReturnType<typeof inbodyComparison>; estimatedTdee: number | null; weeklyGains: number[]; waistChange4w: number | null
   weeksSinceLastAdjust: number; target: Row<'nutrition_targets'> | null; delta: number; ruleId: string; notices: string[]
 }
 export function sumNutrients(items: Nutrients[]): Nutrients {
@@ -91,22 +93,31 @@ export function nutritionWeek(input: NutritionInput, weekNo: number, today: stri
   const target = targetForDate(input.nutritionTargets ?? [], end)
   const { weeklyWeights, weeklyGains: gains, waistChange4w } = bodySummary(input.bodyMetrics ?? [], end)
   const history = (input.nutritionTargets ?? []).filter(t => t.effective_from <= end).sort((a, b) => a.effective_from.localeCompare(b.effective_from) || (a.created_at ?? '').localeCompare(b.created_at ?? ''))
-  const adjustments = history.filter((t, index) => index > 0 && t.kcal !== history[index - 1].kcal)
+  const adjustments = history.filter((t, index) => index === 0 ? t.reason === '手動調整' : t.kcal !== history[index - 1].kcal)
   const lastAdjust = adjustments.at(-1)
   const weeksSinceLastAdjust = lastAdjust ? (Date.parse(`${end}T00:00:00Z`) - Date.parse(`${lastAdjust.effective_from}T00:00:00Z`)) / (7 * 86400000) : 99
   const completeness = expected ? Math.min(recorded / expected, 1) : 0
-  const decision = weeklyKcalDelta({ logCompleteness: completeness, weeklyGains: gains, waistChange4w: waistChange4w ?? 0, weeksSinceLastAdjust })
+  const comparison = inbodyComparison(input.inbodyRecords ?? [], end)
+  const change = comparison ? { weight: inbodyDifference(comparison.baseline, comparison.latest, 'weight_kg'), muscle: inbodyDifference(comparison.baseline, comparison.latest, 'skeletal_muscle_kg'), fat: inbodyDifference(comparison.baseline, comparison.latest, 'body_fat_kg') } : undefined
+  const decision = weeklyKcalDelta({ logCompleteness: completeness, daysSinceLastAdjust: weeksSinceLastAdjust * 7, change })
+  const latest = recentInbody(input.inbodyRecords ?? [], end)[0]
+  const profile = input.profiles?.[0]
+  const weight = latest?.weight_kg ?? weeklyWeights[2]
+  const formulaBmr = profile?.sex && profile.height_cm && profile.birth_date && weight ? bmr(profile.sex, weight, profile.height_cm, Math.floor(elapsedDays(profile.birth_date, end) / 365.2425)) : target?.bmr_kcal
+  const trainingCount = (input.sessions ?? []).filter(s => s.date >= dates[0] && s.date <= end).length
+  const estimatedTdee = latest?.bmr_kcal != null || formulaBmr != null ? tdee(formulaBmr ?? 0, profile?.activity_level ?? 'sedentary', trainingCount, latest?.bmr_kcal) : target?.tdee_kcal ?? null
   const notices: string[] = []
   let delta = decision.delta
   let ruleId = decision.ruleId
   if (decision.ruleId === 'N1') notices.push(explain('N1', { completion: completeness * 100 }))
   if (decision.ruleId === 'N5') notices.push(explain('N5', { weeks: weeksSinceLastAdjust }))
-  if (avgProtein != null && avgProtein < 130) { delta = 0; if (decision.ruleId !== 'N1' && decision.ruleId !== 'N5') ruleId = 'N4'; notices.push(explain('N4', { protein: avgProtein })) }
+  if (avgProtein != null && avgProtein < 130) notices.push(explain('N4', { protein: avgProtein }))
   if (!target) { delta = 0; notices.push(explain('N-no-target', {})) }
   else if (delta) {
     try { adjustedNutrition(target, target.kcal + delta) } catch { delta = 0; ruleId = 'N6'; notices.push(explain('N6', {})) }
   }
-  if (target && (input.nutritionTargets ?? []).some(t => t.effective_from > end && t.kcal !== target.kcal)) { delta = 0; ruleId = 'N5'; notices.push(explain('N-future', {})) }
-  if (!gains.length && waistChange4w == null) notices.push(explain('N-no-weight', {}))
-  return { measurementMode: 'weekly', days, recorded, expected, completeness, loggedDays: logged.length, metDays: logged.filter(d => d.status === 'met').length, partialDays: logged.filter(d => d.status === 'partial').length, avgProtein, weeklyWeights, weeklyGains: gains, waistChange4w, weeksSinceLastAdjust, target, delta, ruleId, notices }
+  if (target && (input.nutritionTargets ?? []).some(t => t.effective_from > end && t.kcal !== target.kcal)) { delta = 0; if (ruleId !== 'N1') ruleId = 'N5'; notices.push(explain('N-future', {})) }
+  if (!comparison) notices.push(explain('N-no-weight', {}))
+  if (comparison) notices.push(explain('N-measurements', { before: inbodyText(comparison.baseline), after: inbodyText(comparison.latest) }))
+  return { measurementMode: 'inbody', comparison, estimatedTdee, days, recorded, expected, completeness, loggedDays: logged.length, metDays: logged.filter(d => d.status === 'met').length, partialDays: logged.filter(d => d.status === 'partial').length, avgProtein, weeklyWeights, weeklyGains: gains, waistChange4w, weeksSinceLastAdjust, target, delta, ruleId, notices }
 }

@@ -1,3 +1,4 @@
+import { addExtraExercises } from './extra'
 import Dexie from 'dexie'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { FitnessDB, stores } from './index'
@@ -29,14 +30,14 @@ describe('照片備份與無損升級',()=>{
     data.tables.exercise_photos[0].exercise_code='bench_bb';data.tables.exercise_photos.push(data.tables.exercise_photos[0]);expect(()=>prepareBackup(JSON.stringify(data))).toThrow('重複主鍵')
     expect(await database.rows('exercise_photos').count()).toBe(0)
   })
-  it('Dexie 5 → 6 保留舊表、訓練及體重，不清空',async()=>{
+  it('Dexie 5 → 8 保留舊表、訓練及體重，不清空',async()=>{
     const before=await readSnapshot(database);const name=database.name;await database.delete()
     const old=new Dexie(name);const {exercise_photos:ignored,...oldStores}=stores;void ignored
     old.version(5).stores({...oldStores,program_weeks:'id, program_id, week_no, &[program_id+week_no]',nutrition_targets:'id, effective_from, created_at, source_analysis_id'})
     for(const [table,rows]of Object.entries(before))if(table!=='exercise_photos'&&rows.length)await old.table(table).bulkAdd(rows)
     await old.table('body_metrics').add({id:crypto.randomUUID(),date:'2026-11-15',weight_kg:60})
     await old.table('workout_sessions').add({id:crypto.randomUUID(),program_week_id:before.program_weeks[0].id,date:'2026-11-15',day_type:'push',completed:true});old.close()
-    database=new FitnessDB(name);await database.open();expect(database.verno).toBe(7);expect(await database.rows('planned_exercises').count()).toBe(216);expect(await database.rows('body_metrics').count()).toBe(1);expect((await database.rows('workout_sessions').toArray())[0].day_type).toBe('push');expect(await database.rows('exercise_photos').count()).toBe(0)
+    database=new FitnessDB(name);await database.open();expect(database.verno).toBe(8);expect(await database.rows('planned_exercises').count()).toBe(216);expect(await database.rows('body_metrics').count()).toBe(1);expect((await database.rows('workout_sessions').toArray())[0].day_type).toBe('push');expect(await database.rows('exercise_photos').count()).toBe(0)
   })
 })
 describe('補量日持續紀錄',()=>{
@@ -45,12 +46,16 @@ describe('補量日持續紀錄',()=>{
     const exercise=(await database.rows('exercises').where('code').equals('incline_press_db').first())!
     const past=schemas.workout_sessions.parse({id:crypto.randomUUID(),date:'2026-11-08',day_type:'push',completed:true});await database.rows('workout_sessions').add(past)
     await database.rows('workout_sets').add(schemas.workout_sets.parse({id:crypto.randomUUID(),session_id:past.id,exercise_id:exercise.id,set_no:1,weight_kg:12,reps:10,rir:2}))
-    const id=await startWorkout(week.id,'extra',database,'2026-11-15');let draft=(await database.rows('workout_drafts').get(id))!;expect(draft.items).toHaveLength(6);expect(draft.items[0].entries[0].weight).toBe('12');expect(draft.items[1].entries[0].weight).toBe('')
+    const id=await startWorkout(week.id,'extra',database,'2026-11-15');let draft=(await database.rows('workout_drafts').get(id))!;expect(draft.items).toHaveLength(0);await addExtraExercises(id,{exerciseId:exercise.id,sets:3},0,database);draft=(await database.rows('workout_drafts').get(id))!;expect(draft.items[0].entries[0]).toMatchObject({weight:'12',reps:'10'})
     await completeEntry(id,draft.items[0].id,draft.items[0].entries[0].id,{weight:'12',reps:'10',rir:2},database)
     database.close();await database.open();expect(await startWorkout(week.id,'extra',database,'2026-11-15')).toBe(id)
     await mutateDraft(id,d=>{d.fatigue='5';d.sleep_h='8'},database);await finishWorkout(id,database)
     await expect(startWorkout(week.id,'extra',database,'2026-11-15')).rejects.toThrow('最多一次')
     const another=(await database.rows('program_weeks').where('week_no').equals(2).first())!;await expect(startWorkout(another.id,'extra',database,'2026-11-15')).rejects.toThrow('最多一次')
+    const copiedId = await startWorkout(another.id,'extra',database,'2026-11-16')
+    await addExtraExercises(copiedId,'copy',0,database)
+    const copied = await database.rows('workout_drafts').get(copiedId)
+    expect(copied?.items[0].entries[0]).toMatchObject({weight:'12',reps:'10',done:false})
     const backup=await createBackup(database);const before=await readSnapshot(database);await restoreBackup(prepareBackup(backup.content),database);expect(await readSnapshot(database)).toEqual(before)
     draft=(await database.rows('workout_drafts').get(id))!;expect(draft).toBeUndefined()
   })

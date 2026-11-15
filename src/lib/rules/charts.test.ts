@@ -11,11 +11,11 @@ describe('每週量測與共用週變化',()=>{
   it('一週一筆即可；同週只取最後一筆、缺週不跨週補值',()=>{
     const data:Row<'body_metrics'>[]=[{id:fixtureId(),date:'2026-11-15',weight_kg:60},{id:fixtureId(),date:'2026-11-22',weight_kg:60.05},{id:fixtureId(),date:'2026-11-23',weight_kg:80},{id:fixtureId(),date:'2026-11-29',weight_kg:60.1,waist_cm:82},{id:fixtureId(),date:'2026-11-01',weight_kg:59,waist_cm:80}]
     const summary=bodySummary(data,'2026-11-29');expect(summary.weeklyWeights).toEqual([60,60.05,60.1]);expect(summary.weeklyGains).toEqual([.05,.05]);expect(summary.waistChange4w).toBe(2)
-    expect(nutritionWeek({...nutritionFixture(),bodyMetrics:data},3,'2026-11-29').delta).toBe(-150)
+    expect(nutritionWeek({...nutritionFixture(),bodyMetrics:data},3,'2026-11-29').delta).toBe(150)
     const onlyWeekly=data.filter(m=>m.date!=='2026-11-23').map(m=>({...m,waist_cm:null}))
     expect(nutritionWeek({...nutritionFixture(),bodyMetrics:onlyWeekly},3,'2026-11-29').delta).toBe(150)
     onlyWeekly.find(m=>m.date==='2026-11-29')!.weight_kg=60.5
-    expect(nutritionWeek({...nutritionFixture(),bodyMetrics:onlyWeekly},3,'2026-11-29').delta).toBe(-150)
+    expect(nutritionWeek({...nutritionFixture(),bodyMetrics:onlyWeekly},3,'2026-11-29').delta).toBe(150)
     expect(bodySummary(data.filter(m=>m.date!=='2026-11-22'),'2026-11-29').weeklyGains).toEqual([])
     expect(bodySummary([],'2026-11-29')).toMatchObject({change:null,status:'unknown',waistChange4w:null})
     expect(bodyTrends(data,'2026-11-29').at(-1)).toMatchObject({date:'2026-11-23',recordedAt:'2026-11-29',weight:60.1,waist:82})

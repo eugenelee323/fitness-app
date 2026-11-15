@@ -1,3 +1,4 @@
+import type { Row } from '../db/schema'
 import { useState, type ReactNode } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link } from 'react-router-dom'
@@ -45,10 +46,10 @@ export function Charts() {
     </section>
     <section className="card"><h2>身體與飲食圖表日期</h2><label>最近 4 週結束日期<input type="date" aria-label="圖表結束日期" value={end} max={today} onChange={e=>{if(e.target.value)setEnd(e.target.value)}} /></label><p>{calendarDate(end,-27)} ～ {end}</p><Link to="/body" className="text-link">輸入／編輯身體數據 →</Link></section>
     <section className="card"><h2>每週體重趨勢</h2><p className="muted">每週一點，週一至週日取最後一筆；本週與前三週。固定週日早上起床如廁後、進食前量測，缺週不補 0。</p>
-      {body.some(p=>p.weight!=null)?<ChartFrame title="每週體重 kg"><LineChart data={body} margin={{left:-16,right:12,top:12,bottom:4}} accessibilityLayer><CartesianGrid stroke="var(--border)" strokeDasharray="3 3" /><XAxis dataKey="label" interval="preserveStartEnd" fontSize={11} /><YAxis domain={['auto','auto']} fontSize={11} /><Tooltip formatter={value=>typeof value==='number'?formatN(value):value} /><Legend wrapperStyle={{fontSize:12}} /><Line dataKey="weight" name="每週體重 kg" stroke="var(--text)" strokeWidth={2} dot={{r:3,fill:'var(--text)',stroke:'var(--text)',strokeWidth:1}} isAnimationActive={false} /></LineChart></ChartFrame>:<p className="empty-chart">這段日期沒有體重紀錄，先記一筆體重。</p>}
+      {body.some(p=>p.weight!=null)?<ChartFrame title="每週體重 kg"><LineChart data={body} margin={{left:-16,right:12,top:12,bottom:4}} accessibilityLayer><CartesianGrid stroke="var(--border)" strokeDasharray="3 3" /><XAxis dataKey="label" interval="preserveStartEnd" fontSize={11} /><YAxis domain={['auto','auto']} fontSize={11} /><Tooltip formatter={value=>typeof value==='number'?formatN(value):value} /><Legend wrapperStyle={{fontSize:12}} /><Line dataKey="weight" name="每週體重 kg" stroke="var(--text)" strokeWidth={2} dot={{r:3,fill:'var(--text)',stroke:'var(--text)',strokeWidth:1}} isAnimationActive={false} /></LineChart></ChartFrame>:<p className="empty-chart">這段日期沒有歷史體重紀錄。</p>}
     </section>
     <section className="card"><h2>腰圍趨勢</h2><p className="muted">每週選填，取該週最後一筆，單位 cm；缺週不連線。</p>
-      {body.some(p=>p.waist!=null)?<ChartFrame title="腰圍趨勢 cm"><LineChart data={body} margin={{left:-16,right:12,top:12,bottom:4}} accessibilityLayer><CartesianGrid stroke="var(--border)" strokeDasharray="3 3" /><XAxis dataKey="label" interval="preserveStartEnd" fontSize={11} /><YAxis domain={['auto','auto']} fontSize={11} /><Tooltip formatter={value=>typeof value==='number'?formatN(value):value} /><Line dataKey="waist" name="腰圍 cm" stroke="var(--text)" dot={{r:4}} isAnimationActive={false} /></LineChart></ChartFrame>:<p className="empty-chart">這段日期沒有腰圍紀錄，每週可在身體數據頁選填一次。</p>}
+      {body.some(p=>p.waist!=null)?<ChartFrame title="腰圍趨勢 cm"><LineChart data={body} margin={{left:-16,right:12,top:12,bottom:4}} accessibilityLayer><CartesianGrid stroke="var(--border)" strokeDasharray="3 3" /><XAxis dataKey="label" interval="preserveStartEnd" fontSize={11} /><YAxis domain={['auto','auto']} fontSize={11} /><Tooltip formatter={value=>typeof value==='number'?formatN(value):value} /><Line dataKey="waist" name="腰圍 cm" stroke="var(--text)" dot={{r:4}} isAnimationActive={false} /></LineChart></ChartFrame>:<p className="empty-chart">這段日期沒有歷史腰圍紀錄。</p>}
       <DataTable><table><thead><tr><th>日期</th><th>體重 kg</th><th>採用紀錄日期</th><th>腰圍 cm</th></tr></thead><tbody>{body.map(p=><tr key={p.date}><td>{p.date}</td><td>{p.weight==null?'未記錄':formatN(p.weight)}</td><td>{p.recordedAt??'未記錄'}</td><td>{p.waist==null?'未記錄':formatN(p.waist)}</td></tr>)}</tbody></table></DataTable>
     </section>
     <section className="card"><h2>每日熱量與蛋白質（最近 4 週）</h2><p className="muted">以各日生效目標計算；100% 為目標值，熱量 90–110% 為達標區間，蛋白質 ≥100% 為達標。未記錄餐點的日期標示「未記錄」。</p>
@@ -57,4 +58,12 @@ export function Charts() {
       <DataTable><table><thead><tr><th>日期</th><th>熱量 kcal／達標</th><th>蛋白質 g／達標</th><th>當日狀態</th></tr></thead><tbody>{diet.map(d=><tr key={d.date}><td>{d.date}</td><td>{d.recorded?formatN(d.total.kcal):'未記錄'}／{d.kcalMet==null?'無對照':d.kcalMet?'達標':'未達標'}</td><td>{d.recorded?formatN(d.total.protein_g):'未記錄'}／{d.proteinMet==null?'無對照':d.proteinMet?'達標':'未達標'}</td><td>{!d.recorded?'未記錄':{met:'達標',partial:'部分達標',missed:'未達標',unknown:'未設定目標'}[d.status]}</td></tr>)}</tbody></table></DataTable>
     </section>
   </div>
+}
+
+export function InbodyTrend({ rows }: { rows: Row<'inbody_records'>[] }) {
+  return <div className="chart-frame" role="img" aria-label="骨骼肌與體脂肪趨勢"><ResponsiveContainer width="100%" height="100%">
+      <LineChart data={[...rows].reverse()}><CartesianGrid stroke="var(--border)" /><XAxis dataKey="date" fontSize={11} /><YAxis unit=" kg" fontSize={11} /><Tooltip /><Legend />
+        <Line dataKey="skeletal_muscle_kg" name="骨骼肌（kg）" stroke="var(--text)" isAnimationActive={false} />
+        <Line dataKey="body_fat_kg" name="體脂肪（kg）" stroke="var(--text-3)" strokeDasharray="5 4" isAnimationActive={false} />
+      </LineChart></ResponsiveContainer></div>
 }

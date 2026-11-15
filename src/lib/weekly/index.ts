@@ -1,3 +1,4 @@
+import { displayLoad } from '../rules/loadDisplay'
 import { taipeiDate } from '../time'
 import { nutritionWeek, adjustedNutrition, nutritionEffectiveDate } from '../rules/nutrition'
 import { nutritionRecommendations } from '../rules/nutritionPlanning'
@@ -20,7 +21,7 @@ export async function loadWeeklyInput(database: FitnessDB = db): Promise<WeeklyI
   const drafts = await database.rows('workout_drafts').toArray()
   const sessions = (await database.rows('workout_sessions').toArray()).filter(s => weekIds.has(s.program_week_id ?? '') && !drafts.some(d => d.session_id === s.id))
   const ids = new Set(sessions.map(s => s.id))
-  return { meals: await database.rows('meals').toArray(), mealItems: await database.rows('meal_items').toArray(), nutritionTargets: await database.rows('nutrition_targets').toArray(), bodyMetrics: await database.rows('body_metrics').toArray(), allSessions: await database.rows('workout_sessions').toArray(), program, weeks, plans: (await database.rows('planned_exercises').toArray()).filter(p => weekIds.has(p.program_week_id)), sessions, sets: (await database.rows('workout_sets').toArray()).filter(s => ids.has(s.session_id)), pains: (await database.rows('pain_reports').toArray()).filter(p => ids.has(p.session_id)), exercises: await database.rows('exercises').toArray(), alternatives: await database.rows('exercise_alternatives').toArray() }
+  return { profiles: await database.rows('user_profiles').toArray(), inbodyRecords: await database.rows('inbody_records').toArray(), meals: await database.rows('meals').toArray(), mealItems: await database.rows('meal_items').toArray(), nutritionTargets: await database.rows('nutrition_targets').toArray(), bodyMetrics: await database.rows('body_metrics').toArray(), allSessions: await database.rows('workout_sessions').toArray(), program, weeks, plans: (await database.rows('planned_exercises').toArray()).filter(p => weekIds.has(p.program_week_id)), sessions, sets: (await database.rows('workout_sets').toArray()).filter(s => ids.has(s.session_id)), pains: (await database.rows('pain_reports').toArray()).filter(p => ids.has(p.session_id)), exercises: await database.rows('exercises').toArray(), alternatives: await database.rows('exercise_alternatives').toArray() }
 }
 export function sourceFingerprint(input: WeeklyInput): string {
   const canonical = (value: unknown): unknown => {
@@ -28,7 +29,7 @@ export function sourceFingerprint(input: WeeklyInput): string {
     if (value != null && typeof value === 'object') return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([key, v]) => [key, canonical(v)]))
     return value
   }
-  const rowKey = (row: Record<string, unknown>) => String(row.id ?? `${row.exercise_id}:${row.alt_exercise_id}`)
+  const rowKey = (row: Record<string, unknown>) => String(row.id ?? row.date ?? `${row.exercise_id}:${row.alt_exercise_id}`)
   const stable = JSON.stringify(canonical(Object.fromEntries(Object.entries(input).map(([key, value]) => [key, Array.isArray(value) ? [...value].sort((a, b) => { const x = rowKey(a); const y = rowKey(b); return x < y ? -1 : x > y ? 1 : 0 }) : value]))))
   // 用於偵測結算後的資料變動，不用作安全或身分驗證。
   let hash = 2166136261
@@ -46,13 +47,18 @@ export async function settleWeek(weekNo: number, recalculate = false, database: 
     if (sessions.some(s => drafts.some(d => d.session_id === s.id))) throw new Error('該週還有進行中的訓練，請先結束再結算。')
     const existing = await database.rows('weekly_analyses').where('[program_id+week_no]').equals([input.program.id, weekNo]).first()
     if (existing && !recalculate) return existing.id
-    const metrics = { ...aggregateWeek(input, weekNo), nutrition: nutritionWeek(input, weekNo, taipeiDate(now)) }
+    const archived = (await database.rows('app_meta').get('archived_nutrition_analyses'))?.value
+    const preserve = existing && Array.isArray(archived) && archived.includes(existing.id)
+    const nutrition = nutritionWeek(input, weekNo, taipeiDate(now))
+    const stored = metricsSchema.safeParse(existing?.metrics)
+    const training = aggregateWeek(input, weekNo)
+    const metrics = { ...training, nutrition: preserve && stored.success ? stored.data.nutrition ?? nutrition : nutrition }
     const id = existing?.id ?? crypto.randomUUID()
     if (existing?.applied_at) {
       await database.rows('weekly_analyses').put({ ...existing, metrics: jsonValue(metrics), computed_at: now.toISOString() })
       return id
     }
-    const proposed = [...planRecommendations(input, metrics), ...nutritionRecommendations(metrics.nutrition, weekNo)]
+    const proposed = [...planRecommendations(input, training), ...nutritionRecommendations(nutrition, weekNo)]
     const rows = proposed.map(rec => schemas.recommendations.parse({ ...rec, id: crypto.randomUUID(), analysis_id: id, before: jsonValue(rec.before), after: jsonValue(rec.after), original_after: jsonValue(rec.after), original_reason: rec.reason, status: 'pending' }))
     if (existing) await database.rows('recommendations').where('analysis_id').equals(id).delete()
     await database.rows('weekly_analyses').put(schemas.weekly_analyses.parse({ id, program_id: input.program.id, week_no: weekNo, rules_version: RULES_VERSION, metrics: jsonValue(metrics), source_fingerprint: sourceFingerprint(input), computed_at: now.toISOString() }))
@@ -107,8 +113,11 @@ export async function decideRecommendation(id: string, status: 'accepted' | 'rej
           if (!row || seen.has(row.id)) throw new Error('修改的課表動作不正確。')
           seen.add(row.id)
           const before = row[field]
+          const plan = input.plans.find(p => p.id === row.id)
+          const exercise = input.exercises.find(e=>e.id===plan?.exercise_id)
+          if (rec.rule_id === 'M3' && (change.value !== (plan?.sets ?? 0) - 1 || change.value < 2)) throw new Error('M3 每個動作只能少一組，至少保留兩組。')
           Object.assign(row, { [field]: change.value, ...(field === 'sets' ? { base_sets: change.value } : {}) })
-          reason += ` ${explain('USER_EDIT', { name: input.exercises.find(e => e.id === input.plans.find(p => p.id === row.id)?.exercise_id)?.name_zh ?? '動作', field: field === 'sets' ? '組數' : '目標重量（kg）', before, after: change.value })}`
+          reason += ` ${explain('USER_EDIT', { name: input.exercises.find(e => e.id === input.plans.find(p => p.id === row.id)?.exercise_id)?.name_zh ?? '動作', field: field === 'sets' ? '組數' : '目標重量', before: field === 'sets' ? before : displayLoad(exercise?.load_type,before), after: field === 'sets' ? change.value : displayLoad(exercise?.load_type,change.value) })}`
         }
         after = proposalSchema.parse(after)
       }
