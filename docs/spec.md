@@ -5,7 +5,9 @@
 
 ## 1. 輸入資料與每週指標
 
-每組記錄重量、次數、RIR；每次訓練記錄疲勞、睡眠、疼痛、是否完成；每週計算下列指標。
+每組記錄重量、次數、RIR；訓練結束後依該次同一動作的最重重量判定熱身，不必手動標記。單手動作左右分開；徒手按加重值比較，未加重的全零紀錄全部是正式組。重量達最重組的 90%，或與最重組相差不超過器材一級，都算正式組。熱身保留實績，歷史與週報標「熱身（自動判定）」。
+
+每次訓練記錄疲勞、睡眠、疼痛、是否完成；每週計算下列指標。
 
 | 輸入 | 單位 / 範圍 | 頻率 |
 | --- | --- | --- |
@@ -21,11 +23,11 @@
 
 | 指標 | 算法 |
 | --- | --- |
-| 完成率 | 實際完成組數 ÷ 計畫組數；補量日未練不計分母，記下第一組後加入該補量日完整計畫組數 |
-| 有效組數（各肌群） | RIR ≤ 3 的組：主要肌群算 1，輔助肌群算 0.5 |
-| 容量 | 重量 × 次數，逐組加總；雙手啞鈴 ×2；單手動作左右各算；引體、雙槓用體重＋掛重 |
+| 完成率 | 正式組完成數 ÷ 計畫組數；補量日未練不計分母，記下第一組後加入該補量日完整計畫組數 |
+| 有效組數（各肌群） | RIR ≤ 3 的正式組：主要肌群算 1，輔助肌群算 0.5 |
+| 容量 | 重量 × 次數，正式組逐組加總；雙手啞鈴 ×2；單手動作左右各算；引體、雙槓用體重＋掛重 |
 | 容量變化 | (本週 − 上次同菜單) ÷ 上次同菜單 |
-| 估計最大重量 e1RM | 重量 × (1 + (次數 + RIR) ÷ 30)，取該動作最佳一組 |
+| 估計最大重量 e1RM | 重量 × (1 + (次數 + RIR) ÷ 30)，取該動作正式組中的最佳一組 |
 | 進步判定 | e1RM 較上次同動作：≥ +1% 進步、−2%～+1% 持平、≤ −2% 退步 |
 | 停滯 | 同一動作連續 2 次持平或退步 |
 | 恢復分數 | 平均疲勞、平均睡眠、疼痛次數 |
@@ -34,13 +36,14 @@
 
 **單次訓練腰部確認**：與下次課表建議分開。包含壓下背動作時，開始前確認 0–10 分（快捷 0／2／5）。BACK0：0 分照原課表。BACK1：1–2 分，目標重量乘 0.9 後向下取器材級距，未知重量維持試重。BACK3：3–10 分，未完成組換成俯臥腿彎舉（leg_curl_lying），沿用其最近一筆重量，缺資料就試重。練中可重新評分，調整以原目標為基準，可手動改回。已完成組保留；調整寫入 plan_changes，適用範圍為當次草稿。
 
-由上到下判斷，符合第一條就停；一次只改一個變數（重量或組數）。基準重量取最重工作組，使用同重量各組的次數及 RIR 判斷。較輕的遞增工作組只計入完成組數。補量日實績提供上次紀錄，但不作為加重依據。
+由上到下判斷，符合第一條就停；一次只改一個變數（重量或組數）。基準重量取最重正式組，使用正式組的次數及 RIR 判斷。只有正式組數達計畫組數才可加重，單手以正式組較少的一側為準。補量日實績提供上次紀錄，但不作為加重依據。
 
 | 優先 | 條件 | 建議 |
 | --- | --- | --- |
 | 1 | 該動作相關部位疼痛 ≥ 4 分，或刺痛 | 停止該動作，改替代動作；連續 2 次就提示就醫 |
 | 2 | 疼痛 1–3 分 | 重量 −10%，觀察下次 |
-| 3 | 最重工作組都超過次數上限 2 下以上 | 加重 1–2 級（啞鈴等級距大的器材取 1 級） |
+| 2a | 正式組少於計畫組數 | L8：維持最重重量，說明實際正式組數和下次目標組數 |
+| 3 | 正式組都超過次數上限 2 下以上 | 加重 1–2 級（啞鈴等級距大的器材取 1 級） |
 | 4 | 最重工作組都做到上限，且 RIR ≥ 1 | 加重 1 級 |
 | 5 | 複合動作出現 RIR 0（力竭） | 重量不變，提醒留 1–2 下 |
 | 6 | 在範圍內但未達上限 | 重量不變，目標每組 +1 下 |
@@ -112,6 +115,8 @@
 - 開始前檢查與已知拉日的間隔：少於 48 小時提醒；舊紀錄只有日期時，前後 2 個日曆日保守提醒可能不足 48 小時。提供「預計下次推日日期（選填）」；填隔天或已有隔天推日紀錄時提醒。提醒可取消或明確選擇繼續，不阻擋訓練。
 
 ## 5. 建議輸出格式與實例
+
+可在下週建議頁貼上 Claude 審核。逐條預覽最終狀態與數值後確認儲存，再按「產生下週課表」。同一條審核明確指定重量與組數時允許一起修改，仍受疼痛、減量、組數與時間上限檢查。
 
 每條建議包含：對象、建議、原因（引用實際數據）、依據規則、狀態（待確認 / 已套用 / 已拒絕）。使用者按確認後才寫入下週課表，並留下修改紀錄。
 
@@ -462,7 +467,7 @@ create table exercise_photos (
 
 ## 12. 計算公式與每週調整演算法
 
-**補充測試**：腰部規則驗證 0、1、2、3、10 分與無歷史重量。以第 1 週推日 fixture 驗證純文字週報及容量；複製資料的數值最多一位小數。
+**補充測試**：審核涵蓋接受、拒絕、部分修改、其他、未知對象、週次錯誤及分步儲存。熱身涵蓋臉拉 9／14／18、反向蝴蝶機 18／25、胸靠式划船機 50／60／60、繩索錘式彎舉 20／27／27／27、同重量臥推、差一級距啞鈴、徒手無加重與單手左右分開。腰部規則驗證 0、1、2、3、10 分與無歷史重量。以第 1 週推日 fixture 驗證純文字週報及容量；複製資料的數值最多一位小數。
 
 放在 `lib/rules/`，全部是純函式（不讀資料庫、不呼叫 AI），每個函式都要有單元測試。規則編號對應第 2–4 節：L = 動作、M = 肌群、D = 減量、N = 飲食。
 
@@ -523,8 +528,31 @@ export function fractionalSets(ex: Exercise, sets: LoggedSet[]): Partial<Record<
 // ---- L：動作層級（決定下次重量）----
 export interface LoadDecision { action: 'stop' | 'reduce' | 'increase' | 'hold'; weightKg: number | null; ruleId: string; }
 
+export function classifyWorkingSets<T extends Pick<LoggedSet, 'weightKg' | 'side'>>(ex: Pick<Exercise, 'incrementKg' | 'unilateral'>, sets: T[]) {
+  const top = new Map<LoggedSet['side'], number>()
+  const side = (set: T) => ex.unilateral ? set.side : 'both'
+  for (const set of sets) {
+    const key = side(set)
+    top.set(key, Math.max(top.get(key) ?? 0, set.weightKg))
+  }
+  return sets.map(set => {
+    const max = top.get(side(set))!
+    const distance = max - set.weightKg
+    return { set, working: set.weightKg + 1e-9 >= max * 0.9 || distance <= ex.incrementKg + 1e-9 }
+  })
+}
+
+export function countWorkingSets(ex: Pick<Exercise, 'unilateral'>, work: LoggedSet[]) {
+  if (!ex.unilateral) return new Set(work.map(s => s.setNo)).size
+  const count = (side: 'left' | 'right') => new Set(work.filter(s => s.side === side || s.side === 'both').map(s => s.setNo)).size
+  return Math.min(count('left'), count('right'))
+}
+
+// ---- L：動作層級（決定下次重量）----
+export interface LoadDecision { action: 'stop' | 'reduce' | 'increase' | 'hold'; weightKg: number | null; ruleId: string; }
+
 export function nextLoad(ex: Exercise, p: Planned, sets: LoggedSet[], painScore: number, prevBelowMin: boolean): LoadDecision {
-  const work = sets.filter(s => s.side !== 'left');          // 單手動作用右側判斷
+  const work = classifyWorkingSets(ex, sets).filter(row => row.working).map(row => row.set);
   const w = work.length ? Math.max(...work.map(s => s.weightKg)) : p.targetWeightKg ?? 0;
   const up = (steps: number, ruleId: string): LoadDecision => ({ action: 'increase', weightKg: w + ex.incrementKg * steps, ruleId });
   const hold = (ruleId: string): LoadDecision => ({ action: 'hold', weightKg: w, ruleId });
@@ -533,14 +561,13 @@ export function nextLoad(ex: Exercise, p: Planned, sets: LoggedSet[], painScore:
   if (painScore >= 1) return { action: 'reduce', weightKg: roundTo(w * 0.9, ex.incrementKg), ruleId: 'L2' };
   if (work.length === 0) return hold('L0');
 
-  const done = work.length >= p.sets;
-  const heaviest = work.filter(s => s.weightKg === w);
-  const minReps = Math.min(...heaviest.map(s => s.reps));
-  const minRir = Math.min(...heaviest.map(s => s.rir ?? 0));
+  if (countWorkingSets(ex, work) < p.sets) return hold('L8');
+  const minReps = Math.min(...work.map(s => s.reps));
+  const minRir = Math.min(...work.map(s => s.rir ?? 0));
   const bigStep = w > 0 && ex.incrementKg / w >= 0.1;       // 級距 ≥ 10% 只加 1 級
 
-  if (done && minReps >= p.repMax + 2) return up(bigStep ? 1 : 2, 'L3');
-  if (done && minReps >= p.repMax && minRir >= 1) return up(1, 'L4');
+  if (minReps >= p.repMax + 2) return up(bigStep ? 1 : 2, 'L3');
+  if (minReps >= p.repMax && minRir >= 1) return up(1, 'L4');
   if (ex.isCompound && minRir === 0) return hold('L5');
   if (minReps < p.repMin) {
     return prevBelowMin
@@ -610,6 +637,10 @@ export function weeklyKcalDelta(i: { logCompleteness: number; daysSinceLastAdjus
 | BMR（80 kg、178 cm、33 歲、男） | 1,752.5 kcal |
 
 ## 13. 程式模組、備份與資料匯入
+
+**Claude 審核文字**：首行「#審核 第1週」，後續每行如「槓鈴臥推 | 接受」「反向蝴蝶機 | 修改 | 重量 25 | 組數 2 | 次數 15」「臉拉 | 修改 | 重量 18」「胸 | 拒絕」「其他 | 接受」。以中文名、英文名或動作代碼匹配本週建議，忽略名稱前後與中間空白、大小寫，允許全形符號。可指定重量、組數、次數、RIR，未指定欄位維持建議值。「其他」可接受或拒絕未列對象，省略時未列建議為待確認。週次或對象不符、重複或數值錯誤均阻止儲存。完成預覽後在同一筆交易儲存決定，產生課表是另一步。已產生課表的週次只以新版規則重算統計顯示，既有課表與建議決定保留。舊備份仍可還原。
+
+**週報動作行**：動作 | 正式組 重量×次數@RIR | 熱身 N 組（如有顯示熱身實績） | 容量（正式組）。
 
 **飲食資料與 InBody**：設定可新增今日生效的四項營養目標，原因為「手動調整」。清除飲食需經先備份提示與筆數確認，輸入「清除」才可在同一交易刪除 meals、meal_items。已結算週報保留飲食快照，即使重新結算也保留統計。貼上可混合餐點與單行 `#InBody YYYY-MM-DD | 體重 70 | 骨骼肌 30 | 體脂肪 15 | 體脂率 21.4`，允許全形符號及選填欄位，錯誤列可修改，全批同一交易儲存。週報身體段落輸出最近兩次 InBody 與差值。
 

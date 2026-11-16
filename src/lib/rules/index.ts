@@ -1,4 +1,4 @@
-export const RULES_VERSION = '2026.11-5';
+export const RULES_VERSION = '2026.11-6';
 
 export type Muscle = 'chest' | 'back' | 'front_delt' | 'side_delt' | 'rear_delt'
   | 'biceps' | 'triceps' | 'quads' | 'hamstrings' | 'glutes';
@@ -40,11 +40,31 @@ export function fractionalSets(ex: Exercise, sets: LoggedSet[]): Partial<Record<
   return out;
 }
 
+export function classifyWorkingSets<T extends Pick<LoggedSet, 'weightKg' | 'side'>>(ex: Pick<Exercise, 'incrementKg' | 'unilateral'>, sets: T[]) {
+  const top = new Map<LoggedSet['side'], number>()
+  const side = (set: T) => ex.unilateral ? set.side : 'both'
+  for (const set of sets) {
+    const key = side(set)
+    top.set(key, Math.max(top.get(key) ?? 0, set.weightKg))
+  }
+  return sets.map(set => {
+    const max = top.get(side(set))!
+    const distance = max - set.weightKg
+    return { set, working: set.weightKg + 1e-9 >= max * 0.9 || distance <= ex.incrementKg + 1e-9 }
+  })
+}
+
+export function countWorkingSets(ex: Pick<Exercise, 'unilateral'>, work: LoggedSet[]) {
+  if (!ex.unilateral) return new Set(work.map(s => s.setNo)).size
+  const count = (side: 'left' | 'right') => new Set(work.filter(s => s.side === side || s.side === 'both').map(s => s.setNo)).size
+  return Math.min(count('left'), count('right'))
+}
+
 // ---- L：動作層級（決定下次重量）----
 export interface LoadDecision { action: 'stop' | 'reduce' | 'increase' | 'hold'; weightKg: number | null; ruleId: string; }
 
 export function nextLoad(ex: Exercise, p: Planned, sets: LoggedSet[], painScore: number, prevBelowMin: boolean): LoadDecision {
-  const work = sets.filter(s => s.side !== 'left');          // 單手動作用右側判斷
+  const work = classifyWorkingSets(ex, sets).filter(row => row.working).map(row => row.set);
   const w = work.length ? Math.max(...work.map(s => s.weightKg)) : p.targetWeightKg ?? 0;
   const up = (steps: number, ruleId: string): LoadDecision => ({ action: 'increase', weightKg: w + ex.incrementKg * steps, ruleId });
   const hold = (ruleId: string): LoadDecision => ({ action: 'hold', weightKg: w, ruleId });
@@ -53,14 +73,13 @@ export function nextLoad(ex: Exercise, p: Planned, sets: LoggedSet[], painScore:
   if (painScore >= 1) return { action: 'reduce', weightKg: roundTo(w * 0.9, ex.incrementKg), ruleId: 'L2' };
   if (work.length === 0) return hold('L0');
 
-  const done = work.length >= p.sets;
-  const heaviest = work.filter(s => s.weightKg === w)
-  const minReps = Math.min(...heaviest.map(s => s.reps));
-  const minRir = Math.min(...heaviest.map(s => s.rir ?? 0));
+  if (countWorkingSets(ex, work) < p.sets) return hold('L8');
+  const minReps = Math.min(...work.map(s => s.reps));
+  const minRir = Math.min(...work.map(s => s.rir ?? 0));
   const bigStep = w > 0 && ex.incrementKg / w >= 0.1;       // 級距 ≥ 10% 只加 1 級
 
-  if (done && minReps >= p.repMax + 2) return up(bigStep ? 1 : 2, 'L3');
-  if (done && minReps >= p.repMax && minRir >= 1) return up(1, 'L4');
+  if (minReps >= p.repMax + 2) return up(bigStep ? 1 : 2, 'L3');
+  if (minReps >= p.repMax && minRir >= 1) return up(1, 'L4');
   if (ex.isCompound && minRir === 0) return hold('L5');
   if (minReps < p.repMin) {
     return prevBelowMin

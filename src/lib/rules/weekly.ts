@@ -1,7 +1,7 @@
 import type { NutritionInput, NutritionWeek } from './nutrition'
 import type { Row } from '../../db/schema'
 import { e1rm, effectiveLoad, fractionalSets, progressStatus, setVolume, type Muscle } from './index'
-import { exerciseRule, loggedRule, muscleLabels, weeklyCompletion } from './workout'
+import { exerciseRule, loggedRule, muscleLabels, weeklyCompletion, workingSetIds } from './workout'
 
 export const PROGRAM_START = '2026-11-09'
 export const MAIN_LIFTS = ['bench_bb', 'pullup', 'leg_press']
@@ -89,7 +89,9 @@ function basicWeek(input: WeeklyInput, weekNo: number) {
   const sessions = input.sessions.filter(s => s.program_week_id === week.id)
   const sessionIds = new Set(sessions.map(s => s.id))
   const plans = input.plans.filter(p => p.program_week_id === week.id && !p.is_paused)
-  const sets = input.sets.filter(s => sessionIds.has(s.session_id)).map(s => ({ ...s, planned_exercise_id: s.planned_exercise_id ?? plans.find(p => p.exercise_id === s.exercise_id && p.day_type === sessions.find(session => session.id === s.session_id)?.day_type)?.id ?? null }))
+  const actual = input.sets.filter(s => sessionIds.has(s.session_id)).map(s => ({ ...s, planned_exercise_id: s.planned_exercise_id ?? plans.find(p => p.exercise_id === s.exercise_id && p.day_type === sessions.find(session => session.id === s.session_id)?.day_type)?.id ?? null }))
+  const working = workingSetIds(actual, input.exercises)
+  const sets = actual.filter(s => working.has(s.id))
   const muscles = Object.fromEntries(Object.keys(muscleLabels).map(m => [m, { sets: 0, volume: 0 }])) as WeekMetrics['muscles']
   const best: Record<string, number> = {}
   const missingBest = new Set<string>()
@@ -123,12 +125,13 @@ function basicWeek(input: WeeklyInput, weekNo: number) {
       for (const key of Object.keys(effective) as Muscle[]) muscles[key].sets += effective[key]!
     }
   }
-  return { week, sessions, sets, best, muscles, volume, warnings, completion: weeklyCompletion(plans, sets, sessions) }
+  return { week, sessions, sets, best, muscles, volume, warnings, completion: weeklyCompletion(plans, actual, sessions, input.exercises) }
 }
 
 export function aggregateWeek(input: WeeklyInput, weekNo: number): WeekMetrics {
   const history = input.weeks.filter(w => w.week_no <= weekNo).sort((a, b) => a.week_no - b.week_no).map(w => basicWeek(input, w.week_no))
   const current = history.find(w => w.week.week_no === weekNo)!
+  const workingSets = history.flatMap(week => week.sets)
   const past = history.filter(w => w.week.week_no < weekNo)
   const previous = past.find(w => w.week.week_no === weekNo - 1)
   const sameMenu = [...past].reverse().find(w => w.week.menu === current.week.menu && w.sets.length > 0)
@@ -154,7 +157,7 @@ export function aggregateWeek(input: WeeklyInput, weekNo: number): WeekMetrics {
     const sessions = input.sessions.filter(s => input.weeks.some(w => w.id === s.program_week_id && w.week_no <= weekNo) && input.sets.some(set => set.session_id === s.id && set.exercise_id === id)).sort((a, b) => b.date.localeCompare(a.date) || (b.started_at ?? '').localeCompare(a.started_at ?? ''))
     const observations = sessions.map(session => {
       if (['bodyweight', 'assisted'].includes(exercise.load_type) && session.bodyweight_kg == null) return null
-      const sets = input.sets.filter(s => s.session_id === session.id && s.exercise_id === id)
+      const sets = workingSets.filter(s => s.session_id === session.id && s.exercise_id === id)
       return Math.max(...sets.map(s => e1rm(effectiveLoad(exerciseRule(exercise), loggedRule(s), session.bodyweight_kg ?? 0), s.reps, s.rir ?? 0)))
     }).filter((v): v is number => v != null)
     let flatOccurrences = 0
@@ -166,7 +169,7 @@ export function aggregateWeek(input: WeeklyInput, weekNo: number): WeekMetrics {
     const regularSessions = sessions.filter(s => s.day_type !== 'extra')
     const lastSets = current.sets.filter(s => s.session_id === regularSessions[0]?.id && s.exercise_id === id)
     const lastPlan = input.plans.find(p => p.id === lastSets[0]?.planned_exercise_id) ?? input.plans.find(p => p.program_week_id === current.week.id && p.exercise_id === id) ?? null
-    const previousSets = input.sets.filter(s => s.session_id === regularSessions[1]?.id && s.exercise_id === id && s.side !== 'left')
+    const previousSets = workingSets.filter(s => s.session_id === regularSessions[1]?.id && s.exercise_id === id && s.side !== 'left')
     const previousPlan = input.plans.find(p => p.id === previousSets[0]?.planned_exercise_id) ?? lastPlan
     const relevant = pains.filter(p => relevantPain(p, exercise))
     const recentPain = sessions.slice(0, 2).map(s => input.pains.some(p => p.session_id === s.id && relevantPain(p, exercise) && (p.score >= 4 || p.sharp || p.body_part.includes('刺痛'))))

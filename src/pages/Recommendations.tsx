@@ -1,23 +1,17 @@
-import { displayLoad, loadLabel } from '../lib/rules/loadDisplay'
+import { Targets } from './RecommendationTargets'
+import { ReviewPanel } from './ReviewPanel'
+import { RULES_VERSION } from '../lib/rules'
+import { loadLabel } from '../lib/rules/loadDisplay'
 import { BackupPrompt } from './BackupButton'
 import { CopyReport } from './CopyReport'
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link, useParams } from 'react-router-dom'
 import { weeklyData, loadWeeklyInput, decideRecommendation, applyRecommendations, acceptPendingRecommendations, type StoredRecommendation } from '../lib/weekly'
-import { proposalSchema, type Proposal } from '../lib/weekly/types'
+import { proposalSchema } from '../lib/weekly/types'
 import { muscleLabels } from '../lib/rules/workout'
 import type { WeeklyInput } from '../lib/rules/weekly'
 
-function Targets({ proposal, input }: { proposal: Proposal; input: WeeklyInput }) {
-  if (proposal.nutrition) { const n = proposal.nutrition; return <p>每日 {n.kcal} kcal · 蛋白質 {n.protein_g} g · 碳水 {n.carbs_g} g · 脂肪 {n.fat_g} g<br />生效日期：{n.effective_from}（逾期確認改為確認當日生效）</p> }
-  if (!proposal.rows.length && !proposal.weeks.length) return <p className="muted">維持現有課表</p>
-  return <>{proposal.weeks.map(w => <p key={w.id}>第 {input.weeks.find(week => week.id === w.id)?.week_no} 週：{w.is_deload ? '減量週' : '正常訓練週'}</p>)}{proposal.rows.map(row => {
-    const plan = input.plans.find(p => p.id === row.id)
-    const ex = input.exercises.find(e => e.id === (row.exercise_id ?? plan?.exercise_id))
-    return <div className="proposal-target" key={row.id}><strong>{ex?.name_zh}<small className="english">{ex?.name_en}</small></strong><p>{row.sets != null && `${row.sets} 組 · `}{row.target_weight_kg !== undefined && (row.target_weight_kg === null ? '試重 · ' : `${displayLoad(ex?.load_type,row.target_weight_kg)} · `)}{row.target_rir != null && `RIR ${row.target_rir} · `}{row.target_reps != null && `目標 ${row.target_reps} 下 · `}{row.is_paused === true ? '暫停此動作' : row.is_paused === false ? '使用此動作' : ''}</p></div>
-  })}</>
-}
 function RecommendationCard({ rec, input, locked, run }: { rec: StoredRecommendation; input: WeeklyInput; locked: boolean; run: (fn: () => Promise<unknown>) => Promise<void> }) {
   const [editing, setEditing] = useState(false)
   const [values, setValues] = useState<Record<string, string>>({})
@@ -56,13 +50,16 @@ export function Recommendations() {
   if (!analysis || !data.input) return <><h1>尚無這週建議</h1><Link to="/analysis">返回分析並結算</Link></>
   const priority = (r: StoredRecommendation) => ['L1', 'S1'].includes(r.rule_id) ? 0 : r.target_type === 'program' ? 1 : r.rule_id === 'L0' ? 4 : r.target_type === 'muscle' ? 3 : 2
   const recs = data.recommendations.filter(r => r.analysis_id === analysis.id).sort((a, b) => priority(a) - priority(b) || a.target_ref.localeCompare(b.target_ref))
+  const locked = !!analysis.applied_at || analysis.rules_version !== RULES_VERSION
   const pending = recs.filter(r => r.status === 'pending').length
-  return <><Link className="text-link" to={`/analysis/${no}`}>← 第 {no} 週報告</Link><div className="page-title"><span className="eyebrow">由你決定，再套用</span><h1>下週訓練與飲食建議</h1><p>先逐條處理建議，最後按「產生下週課表」。接受或修改單條建議都不會立即套用。營養調整保留蛋白質與脂肪，用碳水補熱量差額。</p><p className="muted">啞鈴重量填單支，徒手動作填掛重。修改後仍會檢查單次 12 組、120 分鐘及一次只改一個變數。</p></div>
+  return <><Link className="text-link" to={`/analysis/${no}`}>← 第 {no} 週報告</Link><div className="page-title"><span className="eyebrow">由你決定，再套用</span><h1>下週訓練與飲食建議</h1><p>先逐條處理建議，最後按「產生下週課表」。接受或修改單條建議都不會立即套用。營養調整保留蛋白質與脂肪，用碳水補熱量差額。</p><p className="muted">啞鈴重量填單支，徒手動作填掛重。修改後仍會檢查單次 12 組、120 分鐘；貼上審核可明確指定多項數值。</p></div>
     {analysis.applied_at && <div className="note">已套用確認的課表與營養建議，未再重複套用。請匯出完整備份。<Link to="/settings" className="text-link">前往備份 →</Link><Link to="/plan" className="text-link">查看課表 →</Link></div>}
     {error && <p role="alert" className="error sticky-error">{error}</p>}
-    <CopyReport weekNo={no} />{backupPrompt&&<BackupPrompt onClose={()=>setBackupPrompt(false)} />}<fieldset disabled={busy} className="recommendations-list">{recs.map(rec => <RecommendationCard key={rec.id} rec={rec} input={data.input!} locked={!!analysis.applied_at} run={run} />)}</fieldset>
-    {!analysis.applied_at&&recs.some(r=>r.status==='pending')&&<button className="secondary" disabled={busy} onClick={()=>void run(()=>acceptPendingRecommendations(analysis.id))}>全部接受</button>}
+    <CopyReport weekNo={no} />
+    {!analysis.applied_at&&analysis.rules_version!==RULES_VERSION&&<p className="note">訓練統計規則已更新。請回週報重新結算後再處理建議。</p>}
+    {!analysis.applied_at&&analysis.rules_version===RULES_VERSION&&recs.length>0&&<ReviewPanel key={analysis.id} analysis={analysis} input={data.input} recs={recs} disabled={busy} /> }{backupPrompt&&<BackupPrompt onClose={()=>setBackupPrompt(false)} />}<fieldset disabled={busy} className="recommendations-list">{recs.map(rec => <RecommendationCard key={rec.id} rec={rec} input={data.input!} locked={locked} run={run} />)}</fieldset>
+    {!locked&&recs.some(r=>r.status==='pending')&&<button className="secondary" disabled={busy} onClick={()=>void run(()=>acceptPendingRecommendations(analysis.id))}>全部接受</button>}
     {!recs.length && <section className="card"><p>本週資料不足或已到第 12 週，沒有可套用的下週建議。</p></section>}
-    {!analysis.applied_at && recs.length > 0 && <section className="card"><p>尚有 {pending} 條待確認。拒絕的建議不會套用；未更改的目標保留現有值。</p><button className="primary full-width" disabled={busy || pending > 0} onClick={() => void run(async () => { await applyRecommendations(analysis.id); setBackupPrompt(true) })}>{busy ? '處理中…' : '產生下週課表並套用營養建議'}</button><p className="muted">若結算後新增或修改了訓練資料，請先重新結算；目標週已開始訓練時不再更動課表。</p></section>}
+    {!locked && recs.length > 0 && <section className="card"><p>尚有 {pending} 條待確認。拒絕的建議不會套用；未更改的目標保留現有值。</p><button className="primary full-width" disabled={busy || pending > 0} onClick={() => void run(async () => { await applyRecommendations(analysis.id); setBackupPrompt(true) })}>{busy ? '處理中…' : '產生下週課表並套用營養建議'}</button><p className="muted">若結算後新增或修改了訓練資料，請先重新結算；目標週已開始訓練時不再更動課表。</p></section>}
   </>
 }

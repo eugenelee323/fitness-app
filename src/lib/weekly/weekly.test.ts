@@ -1,9 +1,10 @@
+import { previewReview } from '../paste/review'
 import Dexie from 'dexie'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { FitnessDB, stores } from '../../db'
 import { startWorkout, deleteWorkout } from '../../db/workouts'
 import { fixtureId, logWeek, weeklyFixture } from '../../test/weeklyFixture'
-import { acceptPendingRecommendations, applyRecommendations, autoSettle, decideRecommendation, loadWeeklyInput, settleWeek, sourceFingerprint } from './index'
+import { saveReview, acceptPendingRecommendations, applyRecommendations, autoSettle, decideRecommendation, loadWeeklyInput, settleWeek, sourceFingerprint } from './index'
 import { settlementDeadline, type WeeklyInput } from '../rules/weekly'
 import { readSnapshot, createBackup, prepareBackup, restoreBackup } from '../backup'
 let database: FitnessDB
@@ -245,4 +246,30 @@ describe('時間觸發、減量與完整備份', () => {
     expect((await database.rows('program_weeks').get(input.weeks[3].id))?.is_deload).toBe(true)
     expect((await database.rows('program_weeks').get(input.weeks[4].id))?.is_deload).toBe(false)
   })
+})
+
+it('貼上審核先只儲存決定，確認產生課表後才套用所有明確修改的欄位', async()=>{
+  logWeek(input,1,{day:'push',only:['bench_bb'],weight:20})
+  await persist(input)
+  const id=await settleWeek(1,false,database,new Date('2026-11-15T14:00:00Z'))
+  const initial=(await loadWeeklyInput(database))!
+  const recs=await database.rows('recommendations').where('analysis_id').equals(id).toArray()
+  const raw='#審核 第1週\nbench_bb | 修改 | 重量 25 | 組數 3 | 次數 9 | RIR 3\n其他 | 拒絕'
+  const review=previewReview(raw,1,recs,initial)
+  expect(review.valid).toBe(true)
+  await expect(saveReview(id,raw,'過期預覽',database)).rejects.toThrow('預覽已變動')
+  const plans=await database.rows('planned_exercises').toArray()
+  await saveReview(id,raw,review.signature,database)
+  expect(await database.rows('planned_exercises').toArray()).toEqual(plans)
+  await applyRecommendations(id,database,new Date('2026-11-15T14:00:00Z'))
+  const bench=initial.exercises.find(e=>e.code==='bench_bb')!
+  const plan=plans.find(p=>p.program_week_id===initial.weeks.find(w=>w.week_no===2)!.id&&p.exercise_id===bench.id)!
+  expect(await database.rows('planned_exercises').get(plan.id)).toMatchObject({sets:3,target_weight_kg:25,target_reps:9,rep_max:9,target_rir:3})
+  const applied=await database.rows('planned_exercises').toArray()
+  await expect(saveReview(id,raw,review.signature,database)).rejects.toThrow('已鎖定')
+  await settleWeek(1,true,database)
+  expect(await database.rows('planned_exercises').toArray()).toEqual(applied)
+  const backup = await createBackup(database)
+  await restoreBackup(prepareBackup(backup.content),database)
+  expect(await database.rows('planned_exercises').get(plan.id)).toMatchObject({sets:3,target_reps:9,rep_max:9})
 })

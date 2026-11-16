@@ -67,9 +67,9 @@ it('版本 7 與舊備份均修正 11/11 拉日重量和器材，並更新既有
       expect(await migrated.rows('workout_sets').get(pullId)).toMatchObject({weight_kg:0})
       expect(await migrated.rows('workout_sets').get(validId)).toMatchObject({weight_kg:5})
       const report=await migrated.rows('weekly_analyses').get(reportId)
-      expect(report?.metrics).toMatchObject({volume:1260, exercises:expect.arrayContaining([expect.objectContaining({exercise:expect.objectContaining({code:'pullup'}),best:95})])})
+      expect(report?.metrics).toMatchObject({volume:700, exercises:expect.arrayContaining([expect.objectContaining({exercise:expect.objectContaining({code:'pullup'}),best:95})])})
       await correctExercise(migrated,sessionId,newCable!.id,dbCurl.id)
-      expect((await migrated.rows('weekly_analyses').get(reportId))?.metrics).toMatchObject({volume:1510})
+      expect((await migrated.rows('weekly_analyses').get(reportId))?.metrics).toMatchObject({volume:950})
     }
   } finally { await database.delete(); await target.delete() }
 })

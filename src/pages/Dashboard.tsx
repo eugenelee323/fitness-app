@@ -29,7 +29,7 @@ export function Dashboard() {
     const lastBackup = await db.rows('app_meta').get('last_backup_at')
     const requested = await db.rows('app_meta').get('backup_requested_at')
     const prompt = todayTraining(program,await db.rows('program_weeks').where('program_id').equals(program.id).toArray(),await db.rows('workout_sessions').toArray(),today).day
-    return { program, week, plans, sessions, draft, requested: typeof requested?.value === 'string' ? requested.value : null, lastBackup: typeof lastBackup?.value === 'string' ? lastBackup.value : null, prompt, completion: weeklyCompletion(plans, sets, sessions) }
+    return { program, week, plans, sessions, draft, requested: typeof requested?.value === 'string' ? requested.value : null, lastBackup: typeof lastBackup?.value === 'string' ? lastBackup.value : null, prompt, completion: weeklyCompletion(plans, sets, sessions, await db.rows('exercises').toArray()) }
   }, [today])
   if (!data) return <p role="status">正在讀取本週計畫…</p>
   const outdated = !data.lastBackup || now - Date.parse(data.lastBackup) > 7 * 86400000

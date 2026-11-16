@@ -12,7 +12,13 @@ const n=(value:number|null|undefined)=>value==null?'未填／資料不足':value
 export function weeklyReportText(input:WeeklyInput,weekNo:number,recommendations:Row<'recommendations'>[],asOf:string,savedDays?:NutritionDay[]):string{
   const r=reportNumbers(input,weekNo,asOf,savedDays),m=r.metrics
   const lines=[`#週報 第${weekNo}週（${r.dates[0]}～${r.dates[6]}）${r.week.menu} 菜單`,'','訓練',`完成率 ${n(r.completion)}%（${n(m.completion.done)}／${n(m.completion.target)} 組）`]
-  for(const {session,exercises}of r.sessions){lines.push(`${dayLabels[session.day_type]} | ${session.date} | 疲勞 ${n(session.fatigue)}/10 | 睡眠 ${n(session.sleep_h)} 小時`);for(const {exercise,sets,volume}of exercises)lines.push(`${exercise.name_zh}／${exercise.name_en} | ${sets.map(s=>`${s.side==='both'?'':s.side==='left'?'左':'右'}${displayLoad(exercise.load_type,s.weight_kg,false,1)}×${n(s.reps)}@RIR${n(s.rir)}`).join('、')} | 容量 ${n(volume)} kg`)}
+  for(const {session,exercises}of r.sessions){lines.push(`${dayLabels[session.day_type]} | ${session.date} | 疲勞 ${n(session.fatigue)}/10 | 睡眠 ${n(session.sleep_h)} 小時`)
+    for(const {exercise,sets,warmups,volume} of exercises){
+      const formatSets=(rows:typeof sets)=>rows.map(s=>`${s.side==='both'?'':s.side==='left'?'左':'右'}${displayLoad(exercise.load_type,s.weight_kg,false,1)}×${n(s.reps)}@RIR${n(s.rir)}`).join('、')
+      const warmupDetail = warmups.length ? `（熱身（自動判定）：${formatSets(warmups)}）` : ''
+      lines.push(`${exercise.name_zh}／${exercise.name_en} | 正式組 ${formatSets(sets)} | 熱身 ${new Set(warmups.map(s=>s.set_no)).size} 組${warmupDetail} | 容量（正式組） ${n(volume)} kg`)
+    }
+  }
   if(!r.sessions.length)lines.push('尚無已結束訓練。')
   lines.push('','各肌群有效組數與容量')
   for(const [key,value]of Object.entries(m.muscles))lines.push(`${muscleLabels[key as keyof typeof muscleLabels]} | ${n(value.sets)} 組 | ${n(value.volume)} kg`)

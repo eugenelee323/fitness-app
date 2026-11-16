@@ -18,7 +18,7 @@ it('只比較截止日前 10–21 天內最接近 14 天的 InBody', () => {
   expect(tdee(1400,'moderate',2,1700)).toBeCloseTo(2040+600/7)
 })
 
-it('辨別加重與體重，顯示器材欄位並確認繩索容量不乘二', () => {
+it('辨別加重與體重，確認繩索容量不乘二且熱身不足以加重', () => {
   expect(displayLoad('bodyweight',0)).toBe('體重')
   expect(displayLoad('bodyweight',5)).toBe('體重 + 5 kg')
   expect(displayLoad('cable',20,false)).toBe('20')
@@ -33,5 +33,5 @@ it('辨別加重與體重，顯示器材欄位並確認繩索容量不乘二', (
   const model = exerciseRule(weeklyFixture().exercises.find(e=>e.code==='hammer_curl_cable')!)
   const heaviest = { setNo:2, side:'both' as const, weightKg:25, reps:10, rir:2 }
   expect(setVolume(model,heaviest,70)).toBe(250)
-  expect(nextLoad(model,{ sets:2, repMin:8, repMax:10, targetRir:2, targetWeightKg:20 }, [{...heaviest,setNo:1,weightKg:20,reps:6},heaviest],0,false)).toMatchObject({ruleId:'L4',weightKg:27.5})
+  expect(nextLoad(model,{ sets:2, repMin:8, repMax:10, targetRir:2, targetWeightKg:20 }, [{...heaviest,setNo:1,weightKg:20,reps:6},heaviest],0,false)).toMatchObject({ruleId:'L8',weightKg:25})
 })

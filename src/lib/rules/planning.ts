@@ -1,6 +1,6 @@
 import { displayLoad } from './loadDisplay'
 import type { Row } from '../../db/schema'
-import { deloadDecision, muscleSetDelta, nextLoad, type Muscle } from './index'
+import { countWorkingSets, deloadDecision, muscleSetDelta, nextLoad, type Muscle } from './index'
 import { exerciseRule, loggedRule, muscleLabels } from './workout'
 import { aggregateWeek, isLumbarPain, MAIN_LIFTS, relevantPain, type WeekMetrics, type WeeklyInput } from './weekly'
 import { scheduledRir, scheduledSets } from './seed'
@@ -81,14 +81,14 @@ export function planRecommendations(input: WeeklyInput, metrics: WeekMetrics, fo
     const lumbar = ex.loads_lower_back && (metrics.pains.some(isLumbarPain) || !!known?.lumbarPain)
     const sharp = known?.sharp || currentPain.some(p => p.sharp || p.body_part.includes('刺痛'))
     const base = regular.find(p => p.id === row.id)!
-    const workSets = known?.lastSets.filter(s => s.side !== 'left') ?? []
+    const workSets = known?.lastSets ?? []
     const actualWeight = workSets.length ? Math.max(...workSets.map(s=>s.weight_kg)) : row.target_weight_kg ?? null
     const beforePlan = known?.lastPlan
-    const work = workSets.filter(s=>s.weight_kg===actualWeight)
+    const work = workSets
     const minReps = work.length ? Math.min(...work.map(s => s.reps)) : base.rep_min
     const minRir = work.length ? Math.min(...work.map(s => s.rir ?? 0)) : base.target_rir
     const result = nextLoad(exerciseRule(ex), { sets: beforePlan?.sets ?? base.sets, repMin: beforePlan?.rep_min ?? base.rep_min, repMax: beforePlan?.rep_max ?? base.rep_max, targetRir: base.target_rir, targetWeightKg: actualWeight }, known?.lastSets.map(loggedRule) ?? [], sharp ? Math.max(painScore, 4) : painScore, known?.previousBelowMin ?? false)
-    const context = { name: `${ex.name_zh} / ${ex.name_en}`, pain: painScore, painKind: sharp ? '刺痛' : '疼痛', sets: workSets.length, minReps, minRir, repMin: beforePlan?.rep_min ?? base.rep_min, repMax: beforePlan?.rep_max ?? base.rep_max, beforeWeight: displayLoad(ex.load_type, actualWeight), afterWeight: displayLoad(ex.load_type, result.weightKg), targetReps: targetReps(base.rep_min, base.rep_max, minReps, result.ruleId === 'L6'), belowCount: known?.previousBelowMin ? 2 : 1 }
+    const context = { name: `${ex.name_zh} / ${ex.name_en}`, pain: painScore, painKind: sharp ? '刺痛' : '疼痛', sets: countWorkingSets(exerciseRule(ex), work.map(loggedRule)), planSets: base.sets, minReps, minRir, repMin: beforePlan?.rep_min ?? base.rep_min, repMax: beforePlan?.rep_max ?? base.rep_max, beforeWeight: displayLoad(ex.load_type, actualWeight), afterWeight: displayLoad(ex.load_type, result.weightKg), targetReps: targetReps(base.rep_min, base.rep_max, minReps, result.ruleId === 'L6'), belowCount: known?.previousBelowMin ? 2 : 1 }
     if (lumbar || result.action === 'stop') {
       const alt = lumbar ? input.exercises.find(e => e.code === 'leg_curl_lying') : input.exercises.find(e => input.alternatives.some(a => a.exercise_id === ex.id && a.alt_exercise_id === e.id) && !e.loads_lower_back)
       const after = envelope('none', 'load', true)
@@ -185,6 +185,23 @@ export function mergeProposals(input: WeeklyInput, proposals: Proposal[]): { row
       const week = weeks.find(w => w.id === patch.id)
       if (!week) throw new Error('建議指向不存在的週次')
       Object.assign(week, patch)
+    }
+  }
+  const explicit = new Map<string, number | null>()
+  for (const proposal of proposals.filter(p=>p.review_fields?.length)) for (const patch of proposal.rows) {
+    const row = rows.find(r=>r.id===patch.id)!
+    const keys = new Set<keyof PlanPatch>(proposal.review_fields)
+    if (keys.has('sets')) keys.add('base_sets')
+    if (keys.has('target_rir')) keys.add('base_rir')
+    if (keys.has('target_reps')) { keys.add('rep_min'); keys.add('rep_max') }
+    for (const key of keys) {
+      const value = patch[key]
+      if (typeof value !== 'number' && value !== null) continue
+      if (proposals.some(p=>p.kind==='program'&&p.rows.some(item=>item.id===row.id&&item[key]!==undefined&&item[key]!==value))) throw new Error('審核修改與減量或恢復安排衝突，請調整後再產生課表。')
+      const slot = row.id + ':' + key
+      if (explicit.has(slot) && explicit.get(slot) !== value) throw new Error('同一動作有互相衝突的審核數值。')
+      explicit.set(slot,value)
+      Object.assign(row,{[key]:value})
     }
   }
   return { rows, weeks }

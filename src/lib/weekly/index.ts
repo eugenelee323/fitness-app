@@ -1,3 +1,4 @@
+import { previewReview } from '../paste/review'
 import { displayLoad } from '../rules/loadDisplay'
 import { taipeiDate } from '../time'
 import { nutritionWeek, adjustedNutrition, nutritionEffectiveDate } from '../rules/nutrition'
@@ -125,6 +126,23 @@ export async function decideRecommendation(id: string, status: 'accepted' | 'rej
     await database.rows('recommendations').put(schemas.recommendations.parse({ ...rec, status, after: jsonValue(after), reason, decided_at: new Date().toISOString() }))
   })
 }
+export async function saveReview(analysisId: string, raw: string, signature: string, database: FitnessDB = db) {
+  await database.transaction('rw', database.tables, async () => {
+    const analysis = await database.rows('weekly_analyses').get(analysisId)
+    const input = await loadWeeklyInput(database)
+    if (!analysis || analysis.applied_at) throw new Error('本週建議已鎖定或不存在。')
+    if (analysis.rules_version !== RULES_VERSION || !input || sourceFingerprint(input) !== analysis.source_fingerprint) throw new Error('資料或規則已變動，請重新結算。')
+    const current = await database.rows('recommendations').where('analysis_id').equals(analysisId).toArray()
+    const preview = previewReview(raw, analysis.week_no, current, input)
+    if (!preview.valid || preview.signature !== signature) throw new Error('審核預覽已變動，請重新檢查。')
+    const at = new Date().toISOString()
+    const decisions = preview.decisions.filter(row=>row.change).map(row=>schemas.recommendations.parse({
+      ...row.rec, status:row.status, after:jsonValue(row.after), reason:row.reason, decided_at:row.status==='pending' ? null : at,
+      original_after:row.rec.original_after ?? row.rec.after, original_reason:row.rec.original_reason ?? row.rec.reason,
+    }))
+    await database.rows('recommendations').bulkPut(decisions)
+  })
+}
 export async function acceptPendingRecommendations(analysisId: string, database: FitnessDB = db) {
   await database.transaction('rw', database.tables, async () => {
     const pending = await database.rows('recommendations').where('analysis_id').equals(analysisId).filter(rec => rec.status === 'pending').toArray()
@@ -162,9 +180,10 @@ export async function applyRecommendations(id: string, database: FitnessDB = db,
     for (const row of merged.rows.filter(r => rowIds.has(r.id))) {
       schemas.planned_exercises.parse(row)
       const before = history[row.exercise_id]
-      const actual = before?.lastSets.find(s => s.side !== 'left')?.weight_kg
+      const actual = before?.lastSets.length ? Math.max(...before.lastSets.map(set=>set.weight_kg)) : null
+      const explicitlyApproved = accepted.some((rec,i) => rec.status === 'modified' && proposals[i].review_fields?.includes('target_weight_kg') && proposals[i].review_fields?.includes('sets') && proposals[i].rows.some(p=>p.id===row.id && p.sets===row.sets && p.target_weight_kg===row.target_weight_kg))
       const baselineSets = before?.lastPlan?.base_sets ?? before?.lastPlan?.sets
-      if (!accepted.some(r => r.rule_id === 'D-restore') && !row.is_paused && actual != null && baselineSets != null && row.target_weight_kg != null && row.target_weight_kg !== actual && row.sets !== baselineSets) throw new Error('一次只能改重量或組數，請拒絕其中一項調整或修改後重試。')
+      if (!explicitlyApproved && !accepted.some(r => r.rule_id === 'D-restore') && !row.is_paused && actual != null && baselineSets != null && row.target_weight_kg != null && row.target_weight_kg !== actual && row.sets !== baselineSets) throw new Error('一次只能改重量或組數，請拒絕其中一項調整或修改後重試。')
     }
     const at = now.toISOString()
     // 先寫審核軌跡，再更新課表，同一交易失敗時會全部回復。
